@@ -88,9 +88,26 @@ def _load_docs(volume_id: str, limit: int = 4000) -> list[dict]:
             "date_from",
             "text",
             "ordinal",
+            "persons",
         ],
     )
-    rows = [r for r in tbl.to_pylist() if r["ordinal"] == 0 and len(r["text"]) > 400]
+    # Whole documents, not first chunks. Anchoring a gold set on `ordinal == 0`
+    # meant a term appearing only in a document's later chunks was invisible, so
+    # "this term occurs in exactly 3 documents" was really "in the first chunk of
+    # exactly 3 documents" — and the gold set silently missed the rest.
+    by_doc: dict[str, dict] = {}
+    for r in tbl.to_pylist():
+        d = by_doc.setdefault(
+            r["document_id"],
+            {**r, "text": "", "n_chunks": 0},
+        )
+        d["text"] += (" " if d["text"] else "") + r["text"]
+        d["n_chunks"] += 1
+        d["persons"] = sorted({*(d.get("persons") or []), *(r.get("persons") or [])})
+        if r["ordinal"] == 0:
+            d["head"], d["date_from"], d["doc_number"] = r["head"], r["date_from"], r["doc_number"]
+    rows = [d for d in by_doc.values() if len(d["text"]) > 400]
+    rows.sort(key=lambda d: d["document_id"])
     return rows[:limit]
 
 
@@ -104,16 +121,63 @@ def _norm_head(head: str) -> str:
 
 
 def _rare_entity_docs(docs: list[dict], lo: int, hi: int) -> list[tuple[str, list[dict]]]:
-    """Terms occurring in between `lo` and `hi` documents, with those documents.
+    """Entities occurring in between `lo` and `hi` documents, with those documents.
 
-    Rarity is what makes the term usable as a gold anchor: a term in 40 documents
-    cannot define a 3-document answer set.
+    Anchors come from the TEI `persName` markup, not from a regex over
+    capitalised words. Rare capitalised strings in FRUS are dominated by OCR
+    damage — an earlier version anchored questions on `Keorgeor`, `Trafillo` and
+    `Austrialian`, which are scanning artefacts, not entities anyone can ask
+    about. The editors' own tagging is the reliable source.
+
+    Rarity is what makes an entity usable as a gold anchor: a name in 40
+    documents cannot define a 3-document answer set.
     """
     by_term: dict[str, list[dict]] = {}
     for d in docs:
-        for term in set(_keywords(d["text"], n=25)):
+        for term in {t.strip() for t in d.get("persons") or []}:
+            # Single-token surnames are the citable form in FRUS heads and bodies.
+            if len(term) < 5 or not term.replace(" ", "").replace(".", "").isalpha():
+                continue
+            # The name must be in the indexed body, not only in a footnote the
+            # parser strips: a gold document whose anchor exists only in
+            # apparatus is unreachable by any retriever, so it would measure
+            # nothing but the benchmark's own defect.
+            if term not in d["text"]:
+                continue
             by_term.setdefault(term, []).append(d)
-    return [(term, ds) for term, ds in by_term.items() if lo <= len(ds) <= hi and len(term) >= 5]
+    return [(term, ds) for term, ds in by_term.items() if lo <= len(ds) <= hi]
+
+
+def corpus_document_frequency(terms: set[str]) -> dict[str, int]:
+    """How many documents corpus-wide contain each term.
+
+    A term unique inside its volume can still appear in hundreds of documents
+    elsewhere; retrieval is not volume-scoped, so per-volume rarity is the wrong
+    test. Measured: `Financial` was accepted as a per-volume unique anchor while
+    occurring in 5,146 chunks corpus-wide, which made those cases unanswerable.
+    """
+    from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
+
+    if not terms:
+        return {}
+    try:
+        tbl = connect().open_table(CHUNKS_TABLE)
+    except Exception:
+        return dict.fromkeys(terms, 0)
+    out: dict[str, int] = {}
+    for term in terms:
+        if not term.replace("-", "").isalnum():
+            out[term] = 10**6
+            continue
+        rows = (
+            tbl.search()
+            .where(f"text LIKE '%{term}%'")
+            .select(["volume_id", "document_id"])
+            .limit(4000)
+            .to_list()
+        )
+        out[term] = len({(r["volume_id"], r["document_id"]) for r in rows})
+    return out
 
 
 def _head_frequencies() -> dict[str, int]:
@@ -159,6 +223,7 @@ def build_gold_cases(
     n_correction: int = 5,
     n_unanswerable: int = 5,
     out: Path = Path("eval/gold_cases.jsonl"),
+    max_anchor_documents: int = 12,
 ) -> dict:
     rng = random.Random(SEED)
     settings = get_settings()
@@ -230,6 +295,11 @@ def build_gold_cases(
         if len(docs) < 8:
             continue
         anchored = _rare_entity_docs(docs, lo=2, hi=4)
+        # Retrieval is not volume-scoped, so a per-volume anchor is not enough:
+        # the term has to be rare corpus-wide or the gold documents compete with
+        # every other volume that mentions it.
+        freq = corpus_document_frequency({t for t, _ in anchored[:40]})
+        anchored = [(t, ds) for t, ds in anchored if 0 < freq.get(t, 10**6) <= max_anchor_documents]
         if not anchored:
             continue
         term, picked = rng.choice(anchored)
@@ -242,22 +312,24 @@ def build_gold_cases(
                 "kind": "multihop",
                 "route": "complex",
                 "question_en": (
-                    f"In the FRUS volume on {subject}, what was discussed regarding "
-                    f"{term}, and how did the position develop between "
-                    f"{d0['date_from']} and {d1['date_from']}? Cite every document."
+                    f"In the FRUS volume on {subject}, what did {term} report or argue, "
+                    f"and how did that develop between {d0['date_from']} and "
+                    f"{d1['date_from']}? Cite every document."
                 ),
                 "question_zh": (
-                    f"在關於{subject}的 FRUS 卷次中，針對 {term} 討論了什麼？"
-                    f"立場在 {d0['date_from']} 到 {d1['date_from']} 之間如何演變？"
+                    f"在關於{subject}的 FRUS 卷次中，{term} 提出或報告了什麼？"
+                    f"在 {d0['date_from']} 到 {d1['date_from']} 之間有何演變？"
                     "請引用所有相關文件。"
                 ),
                 "gold_documents": [f"{d['volume_id']}:{d['document_id']}" for d in picked],
                 "gold_volume_ids": [row["volume_id"]],
                 "answerable": True,
                 "notes": (
-                    f"anchor term '{term}' appears in exactly {len(picked)} documents "
-                    "of this volume; those are the gold set"
+                    f"anchor '{term}': {len(picked)} documents in this volume, "
+                    f"{freq.get(term)} corpus-wide; those in-volume documents are the gold set"
                 ),
+                "anchor_term": term,
+                "anchor_corpus_documents": freq.get(term),
             }
         )
 
@@ -273,26 +345,64 @@ def build_gold_cases(
         # wording rather than the archival phrasing, so a first retrieval that
         # keys on the paraphrase can miss and the correction has work to do.
         unique = _rare_entity_docs(docs, lo=1, hi=1)
+        freq = corpus_document_frequency({t for t, _ in unique[:40]})
+        unique = [(t, ds) for t, ds in unique if 0 < freq.get(t, 10**6) <= max_anchor_documents]
         if not unique:
             continue
         term, (d,) = rng.choice(unique)
+
+        # Paired design. The earlier version wrote "I remember something about
+        # {term}..." — which left the archival term verbatim in the question, so
+        # the first retrieval had everything it needed and nothing was being
+        # measured except global ambiguity. The mismatch wording must omit the
+        # term while keeping enough context (volume subject, dates, place) for
+        # the question to remain answerable.
+        subject = row["title_volume"] or row["title_complete"]
+        year = (d["date_from"] or "")[:4]
+        common = {
+            "gold_documents": [f"{d['volume_id']}:{d['document_id']}"],
+            "gold_volume_ids": [row["volume_id"]],
+            "answerable": True,
+            "anchor_term": term,
+            "anchor_corpus_documents": freq.get(term),
+            "pair_id": f"corr-{len(cases):02d}",
+        }
         cases.append(
             {
                 "case_id": f"correction-{len(cases):02d}",
                 "kind": "correction",
                 "route": "simple",
+                "variant": "mismatch",
                 "question_en": (
-                    f"I remember something about {term} being talked over in these "
-                    "papers — what did they end up settling on?"
+                    f"In {year}, in the context of {subject}, one American official "
+                    "reported on this matter and a decision followed. What did that "
+                    "official report, and what was decided?"
                 ),
-                "question_zh": f"我記得這批文件裡談到 {term} 的事，最後是怎麼定案的？",
-                "gold_documents": [f"{d['volume_id']}:{d['document_id']}"],
-                "gold_volume_ids": [row["volume_id"]],
-                "answerable": True,
+                "question_zh": (
+                    f"{year} 年，在{subject}的脈絡下，有一位美方官員就此事提出報告，"
+                    "隨後做出了決定。該官員報告了什麼？決定又是什麼？"
+                ),
                 "notes": (
-                    f"anchor term '{term}' is unique to this document in the volume; "
-                    "question is deliberately paraphrased, expects a corrective retrieval"
+                    f"mismatch variant: the archival term '{term}' "
+                    f"({freq.get(term)} documents corpus-wide) is deliberately ABSENT; "
+                    "paired with the matched variant of the same document"
                 ),
+                **common,
+            }
+        )
+        cases.append(
+            {
+                "case_id": f"correction-{len(cases):02d}",
+                "kind": "correction_matched",
+                "route": "simple",
+                "variant": "matched",
+                "question_en": f"In {year}, what did {term} report, and what was decided?",
+                "question_zh": f"{year} 年，{term} 報告了什麼？後續做出什麼決定？",
+                "notes": (
+                    f"matched control: same gold document, archival term '{term}' present. "
+                    "The mismatch/matched gap is what a corrective retrieval has to close."
+                ),
+                **common,
             }
         )
 

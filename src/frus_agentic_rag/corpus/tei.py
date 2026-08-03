@@ -92,11 +92,27 @@ def _source_note(div: etree._Element) -> str:
 
 
 def _persons(div: etree._Element) -> list[str]:
+    """Names tagged in the body, excluding editorial apparatus.
+
+    Iterating the whole div also collects names that appear only inside source
+    notes and footnotes — text `_body_text` strips and the index therefore never
+    sees. A gold set anchored on those names points at documents no retriever
+    can reach: measured on one case, three of four gold documents carried the
+    name only in a footnote.
+    """
     seen: dict[str, None] = {}
-    for p in div.iter(f"{T}persName"):
-        name = _clean(_itertext(p))
-        if name:
-            seen.setdefault(name, None)
+
+    def walk(el: etree._Element) -> None:
+        if not _is_element(el) or el.tag in _APPARATUS:
+            return
+        if el.tag == f"{T}persName":
+            name = _clean(_itertext(el))
+            if name:
+                seen.setdefault(name, None)
+        for child in el:
+            walk(child)
+
+    walk(div)
     return list(seen)[:40]
 
 

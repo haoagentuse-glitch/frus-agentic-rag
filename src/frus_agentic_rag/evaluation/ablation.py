@@ -213,6 +213,13 @@ def summarise(rows: list[dict]) -> dict:
         "correction_success_rate": _mean(
             [1.0 if (r["agent_union_recall"] or 0) > 0 else 0.0 for r in by_kind("correction")]
         ),
+        # The matched variant asks about the same gold document using the
+        # archival term. The gap between the two is what a corrective retrieval
+        # has to close; closing it is the only evidence that correction works.
+        "correction_pair_gap_pp": _delta(
+            _mean([r["agent_union_recall"] for r in by_kind("correction_matched")]),
+            _mean([r["agent_union_recall"] for r in by_kind("correction")]),
+        ),
         # --- everything downstream of retrieval ---
         "answer_correctness": _mean(
             [1.0 if r["judge_correct"] else 0.0 for r in ok if r["judge_correct"] is not None]
@@ -412,6 +419,16 @@ async def run_ablation(
                 )
         per_system[system] = summarise(sys_rows)
 
+    rows_by_system: dict[str, list[dict]] = {}
+    for r in rows:
+        rows_by_system.setdefault(r["system"], []).append(r)
+    base_rows = rows_by_system.get("B0") or rows_by_system.get("B0-2step") or []
+    paired = {
+        s_: paired_by_case(rows_by_system[s_], base_rows)
+        for s_ in rows_by_system
+        if base_rows and s_ not in ("B0", "B0-2step")
+    }
+
     baseline = per_system.get("B0") or per_system.get("B0-2step")
     b3 = per_system.get("B3")
     gates = _gates(baseline, b3) if baseline and b3 else {}
@@ -440,6 +457,7 @@ async def run_ablation(
             ),
         },
         "per_system": per_system,
+        "paired_vs_baseline": paired,
         "gates": gates,
         "runs": rows,
     }
