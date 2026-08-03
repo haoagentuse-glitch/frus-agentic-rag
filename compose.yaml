@@ -1,0 +1,114 @@
+name: frus-agentic-rag
+
+x-frus-image: &frus-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: frus-agentic-rag:latest
+
+x-frus-env: &frus-env
+  FRUS_DATA_DIR: /data
+  FRUS_RAW_DIR: /data/raw/frus/volumes
+  FRUS_LANCEDB_URI: /data/index/lancedb
+  FRUS_BGE_MODEL_PATH: ${FRUS_BGE_MODEL_PATH:-/models/hf-hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181}
+  FRUS_OLLAMA_HOST: http://ollama:11434
+  FRUS_OLLAMA_MODEL: ${FRUS_OLLAMA_MODEL:-qwen3:4b-instruct}
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+  TOKENIZERS_PARALLELISM: "false"
+
+x-frus-volumes: &frus-volumes
+  - ./src:/app/src
+  - ./tests:/app/tests
+  - ./eval:/app/eval
+  - ./reports:/app/reports
+  - ./data:/data
+  # Full hub dir, read-only: snapshot dirs contain relative symlinks into
+  # ../../blobs, so mounting only the snapshot breaks the model load.
+  - /home/haoche_nitro_v15/.cache/huggingface/hub:/models/hf-hub:ro
+
+services:
+  # Lint / type-check / test / CLI. No GPU.
+  dev:
+    <<: *frus-image
+    environment:
+      <<: *frus-env
+      FRUS_EMBED_DEVICE: cpu
+    volumes: *frus-volumes
+    working_dir: /app
+    command: ["frus", "--help"]
+
+  # Offline full-corpus BGE-M3 embedding. GPU. Stop ollama first.
+  embed:
+    <<: *frus-image
+    profiles: ["batch"]
+    environment:
+      <<: *frus-env
+      FRUS_EMBED_DEVICE: cuda
+    volumes: *frus-volumes
+    working_dir: /app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["frus", "embed", "--all", "--resume"]
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Online serving: Qwen on GPU via ollama, BGE query embedding on CPU.
+  api:
+    <<: *frus-image
+    environment:
+      <<: *frus-env
+      FRUS_EMBED_DEVICE: cpu
+    volumes: *frus-volumes
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    command:
+      ["uvicorn", "frus_agentic_rag.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  ui:
+    <<: *frus-image
+    environment:
+      <<: *frus-env
+      FRUS_API_URL: http://api:8000
+    volumes: *frus-volumes
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    command:
+      [
+        "streamlit",
+        "run",
+        "src/frus_agentic_rag/ui.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+        "--server.headless=true",
+      ]
+
+volumes:
+  ollama-models:
