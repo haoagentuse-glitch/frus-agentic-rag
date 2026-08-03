@@ -25,6 +25,10 @@ x-frus-hosts: &frus-hosts
   - "host.docker.internal:host-gateway"
 
 x-frus-volumes: &frus-volumes
+  # Tool config is mounted, not baked: a lint or pytest setting should take
+  # effect without rebuilding the image.
+  - ./pyproject.toml:/app/pyproject.toml:ro
+  - ./uv.lock:/app/uv.lock:ro
   - ./src:/app/src
   - ./tests:/app/tests
   - ./eval:/app/eval
