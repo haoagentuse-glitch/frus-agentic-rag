@@ -77,24 +77,49 @@ def bm25_search(query: str, filters: SearchFilters, limit: int) -> list[dict]:
 def dense_search(query: str, filters: SearchFilters, limit: int) -> list[dict]:
     from frus_agentic_rag.corpus.embed import encode
 
+    settings = get_settings()
     tbl = _open()
     vec = encode([query])[0]
     where = build_where(filters)
     # Chunks whose vector was never filled would otherwise rank as noise.
     where = f"({where}) AND embedded = true" if where else "embedded = true"
-    return _rows(tbl.search(vec, vector_column_name="vector"), limit, where)
+    search = (
+        tbl.search(vec, vector_column_name="vector")
+        .nprobes(settings.ann_nprobes)
+        .refine_factor(settings.ann_refine_factor)
+    )
+    return _rows(search, limit, where)
 
 
-def rrf_fuse(ranked_lists: list[list[dict]], k: int, top_k: int, hop: str = "") -> list[Evidence]:
+def rrf_fuse(
+    ranked_lists: list[list[dict]],
+    k: int,
+    top_k: int,
+    hop: str = "",
+    weights: tuple[float, float] | None = None,
+) -> list[Evidence]:
+    """Weighted reciprocal rank fusion over [lexical, dense].
+
+    The weights are not decoration. With equal weights, each arm contributes
+    candidate_k documents whose scores all sit within 1/(k+1)..1/(k+50) of each
+    other, so the weaker arm's 50 candidates crowd out the stronger arm's hits
+    at ranks 5-10 — measured on this corpus, equal-weight fusion scored BELOW
+    lexical retrieval alone. See README "Why lexical outweighs dense here".
+    """
+    settings = get_settings()
+    w_lex, w_dense = weights or (settings.rrf_weight_lexical, settings.rrf_weight_dense)
+    arm_weights = (w_lex, w_dense)
+
     scores: dict[str, float] = {}
     payload: dict[str, dict] = {}
     ranks: dict[str, dict[str, int]] = {}
 
     for list_idx, rows in enumerate(ranked_lists):
         name = "bm25" if list_idx == 0 else "dense"
+        weight = arm_weights[list_idx] if list_idx < len(arm_weights) else 1.0
         for rank, row in enumerate(rows, start=1):
             cid = row["chunk_id"]
-            scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + rank)
+            scores[cid] = scores.get(cid, 0.0) + weight / (k + rank)
             payload.setdefault(cid, row)
             ranks.setdefault(cid, {})[name] = rank
 

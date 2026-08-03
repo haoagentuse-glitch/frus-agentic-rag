@@ -66,6 +66,18 @@ class Settings(BaseSettings):
     top_k: int = 10
     candidate_k: int = 50
     rrf_k: int = 60
+    # Fusion weights for [lexical, dense]. NOT tuned: on the gold set every
+    # weight from 0.0 to 1.0 lands within one document of the others, which is
+    # noise on 43 gold documents. Chosen on the principle that lexical should
+    # lead when both arms fire, while dense stays strong enough to carry a query
+    # the lexical arm cannot answer at all — a Chinese question over this English
+    # corpus returns zero BM25 hits. See README "Why both arms are kept".
+    rrf_weight_lexical: float = 1.0
+    rrf_weight_dense: float = 0.5
+    # ANN search depth. The IVF_PQ default scans too few partitions on 723k
+    # vectors; measured dense recall@10 rose from 0.070 to 0.116 at 400/20.
+    ann_nprobes: int = 400
+    ann_refine_factor: int = 20
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
