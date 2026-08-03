@@ -159,8 +159,12 @@ def build_bm25_index() -> dict:
     """Native tantivy FTS over the chunk text. Usable without any vectors."""
     db = connect()
     tbl = db.open_table(CHUNKS_TABLE)
-    tbl.create_fts_index("text", replace=True, use_tantivy=False)
-    return {"rows": tbl.count_rows(), "index": "fts:text"}
+    tbl.create_fts_index("text", replace=True, use_tantivy=False, name="text_idx")
+    # A second index on the title, not a second field on the first: BM25
+    # normalises by field length, so a title term inside a 512-token body chunk
+    # scores nothing like the same term in a 12-token head.
+    tbl.create_fts_index("head", replace=True, use_tantivy=False, name="head_idx")
+    return {"rows": tbl.count_rows(), "indices": ["fts:text", "fts:head"]}
 
 
 def build_ann_index(num_partitions: int | None = None) -> dict:

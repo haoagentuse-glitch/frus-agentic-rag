@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     # the lexical arm cannot answer at all — a Chinese question over this English
     # corpus returns zero BM25 hits. See README "Why both arms are kept".
     rrf_weight_lexical: float = 1.0
+    rrf_weight_head: float = 1.0
     rrf_weight_dense: float = 0.5
     # ANN search depth. The IVF_PQ default scans too few partitions on 723k
     # vectors; measured dense recall@10 rose from 0.070 to 0.116 at 400/20.

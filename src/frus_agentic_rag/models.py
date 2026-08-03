@@ -96,6 +96,7 @@ class Evidence(BaseModel):
     text: str
     score: float = 0.0
     rank_bm25: int | None = None
+    rank_head: int | None = None
     rank_dense: int | None = None
     hop: str = ""  # which subquery surfaced it
 
