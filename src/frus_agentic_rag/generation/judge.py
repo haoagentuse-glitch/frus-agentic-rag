@@ -40,17 +40,22 @@ An answer that hedges but gets the substance right scores 0.6-0.9.
 Reply with JSON only: {"score": <0-1>, "correct": <bool>, "reason": "<one sentence>"}"""
 
 
+def _env(name: str, default: str = "") -> str:
+    """.env files written on Windows carry a trailing \\r that poisons URLs and headers."""
+    return (os.getenv(name) or default).strip()
+
+
 def _endpoint() -> str:
-    base = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
+    base = _env("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
     # The key in .env points at an /interactions path used by another project;
     # the models endpoint is what generateContent needs.
     base = base.replace("/interactions", "").rstrip("/")
-    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    model = _env("GEMINI_MODEL", "gemini-3.5-flash-lite")
     return f"{base}/models/{model}:generateContent"
 
 
 def available() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY"))
+    return bool(_env("GEMINI_API_KEY"))
 
 
 async def judge_answer(
@@ -100,7 +105,7 @@ async def judge_answer(
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(
                 _endpoint(),
-                headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
+                headers={"x-goog-api-key": _env("GEMINI_API_KEY")},
                 json=payload,
             )
             r.raise_for_status()

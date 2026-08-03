@@ -99,16 +99,57 @@ def _topic(head: str) -> str:
     return re.sub(r"^\d+\.\s*", "", head).strip()
 
 
+def _norm_head(head: str) -> str:
+    return _topic(head).lower()
+
+
+def _rare_entity_docs(docs: list[dict], lo: int, hi: int) -> list[tuple[str, list[dict]]]:
+    """Terms occurring in between `lo` and `hi` documents, with those documents.
+
+    Rarity is what makes the term usable as a gold anchor: a term in 40 documents
+    cannot define a 3-document answer set.
+    """
+    by_term: dict[str, list[dict]] = {}
+    for d in docs:
+        for term in set(_keywords(d["text"], n=25)):
+            by_term.setdefault(term, []).append(d)
+    return [(term, ds) for term, ds in by_term.items() if lo <= len(ds) <= hi and len(term) >= 5]
+
+
+def _head_frequencies() -> dict[str, int]:
+    """How many documents corpus-wide share each head, for uniqueness filtering."""
+    settings = get_settings()
+    counts: dict[str, int] = {}
+    for path in sorted(settings.chunks_dir.glob("*.parquet")):
+        tbl = pq.read_table(path, columns=["head", "ordinal"])
+        for head, ordinal in zip(tbl["head"].to_pylist(), tbl["ordinal"].to_pylist(), strict=True):
+            if ordinal != 0 or not head:
+                continue
+            key = _norm_head(head)
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?;:])\s+|\n+")
+_CAPWORD = re.compile(r"\b[A-Z][a-z]{3,}\b")
+
+
 def _keywords(text: str, n: int = 6) -> list[str]:
-    """Distinctive capitalised terms: rare enough that a paraphrase can miss them."""
-    words = [
-        w
-        for w in re.findall(r"[A-Z][a-z]{3,}", text)
-        if not _STOP.match(w) and w not in _BOILERPLATE
-    ]
+    """Proper nouns, taken only from mid-sentence positions.
+
+    A plain `[A-Z][a-z]{3,}` sweep also collects sentence-initial common words —
+    measured anchors included "Section", "Draft", "Presently" and "Suppose",
+    which retrieve nothing useful, while genuine proper nouns (Daland, Istrian)
+    hit their gold documents exactly. Skipping the first token of each sentence
+    is a cheap way to keep only the latter.
+    """
     seen: dict[str, None] = {}
-    for w in words:
-        seen.setdefault(w, None)
+    for sentence in _SENTENCE_SPLIT.split(text):
+        tokens = sentence.split()
+        for tok in tokens[1:]:  # the first token is capitalised by position
+            for w in _CAPWORD.findall(tok):
+                if not _STOP.match(w) and w not in _BOILERPLATE:
+                    seen.setdefault(w, None)
     return list(seen)[:n]
 
 
@@ -131,38 +172,67 @@ def build_gold_cases(
     cases: list[dict] = []
 
     # 1. Single-document lookup.
+    #
+    # FRUS heads are standard diplomatic correspondence forms: "The Secretary of
+    # State to the Consulate General at Batavia" occurs on 216 chunks across the
+    # corpus. A lookup case keyed on the head alone is undecidable — measured, not
+    # assumed — so candidates must have a head that is rare corpus-wide, and the
+    # question carries the date as a disambiguator.
+    head_counts = _head_frequencies()
     for row in usable:
         if len([c for c in cases if c["kind"] == "lookup"]) >= n_lookup:
             break
         docs = _load_docs(row["volume_id"])
-        if not docs:
+        candidates = [
+            d
+            for d in docs
+            if len(_topic(d["head"])) >= 12
+            and d["date_from"]
+            and head_counts.get(_norm_head(d["head"]), 99) <= 2
+        ]
+        if not candidates:
             continue
-        d = rng.choice(docs)
+        d = rng.choice(candidates)
         topic = _topic(d["head"])
-        if len(topic) < 12:
-            continue
         cases.append(
             {
                 "case_id": f"lookup-{len(cases):02d}",
                 "kind": "lookup",
                 "route": "lookup",
-                "question_en": f"What does the FRUS document titled '{topic}' say?",
-                "question_zh": f"FRUS 中標題為「{topic}」的文件內容說了什麼？",
+                "question_en": (
+                    f"What does the FRUS document titled '{topic}', dated {d['date_from']}, say?"
+                ),
+                "question_zh": (
+                    f"FRUS 中標題為「{topic}」、日期為 {d['date_from']} 的文件說了什麼？"
+                ),
                 "gold_documents": [f"{d['volume_id']}:{d['document_id']}"],
                 "gold_volume_ids": [d["volume_id"]],
                 "answerable": True,
-                "notes": f"date {d['date_from']}",
+                "notes": (
+                    f"head occurs on {head_counts.get(_norm_head(d['head']), 0)} "
+                    f"documents corpus-wide; date {d['date_from']}"
+                ),
             }
         )
 
-    # 2. Multi-document comparison / timeline within one volume, 2-4 golds.
+    # 2. Multi-document questions anchored on a rare entity.
+    #
+    # The gold set has to BE the answer, not a random sample. An earlier version
+    # picked 2-4 arbitrary documents from a volume and asked a subject question
+    # about them; retrieval scored 0/30, correctly, because nothing tied those
+    # documents to that question. Here the anchor term occurs in exactly 2-4
+    # documents of the volume, so those documents are what a correct answer must
+    # cite, and the question is genuinely multi-hop over them.
     for row in usable:
         if len([c for c in cases if c["kind"] == "multihop"]) >= n_multihop:
             break
         docs = _load_docs(row["volume_id"])
         if len(docs) < 8:
             continue
-        picked = rng.sample(docs, k=rng.choice([2, 3, 4]))
+        anchored = _rare_entity_docs(docs, lo=2, hi=4)
+        if not anchored:
+            continue
+        term, picked = rng.choice(anchored)
         picked.sort(key=lambda d: d["date_from"] or "")
         subject = row["title_volume"] or row["title_complete"]
         d0, d1 = picked[0], picked[-1]
@@ -172,17 +242,22 @@ def build_gold_cases(
                 "kind": "multihop",
                 "route": "complex",
                 "question_en": (
-                    f"On the subject of {subject}, how did the US position develop between "
-                    f"{d0['date_from']} and {d1['date_from']}? Cite the documents."
+                    f"In the FRUS volume on {subject}, what was discussed regarding "
+                    f"{term}, and how did the position develop between "
+                    f"{d0['date_from']} and {d1['date_from']}? Cite every document."
                 ),
                 "question_zh": (
-                    f"關於{subject}，美方立場在 {d0['date_from']} 到 {d1['date_from']} "
-                    "之間如何演變？請引用文件。"
+                    f"在關於{subject}的 FRUS 卷次中，針對 {term} 討論了什麼？"
+                    f"立場在 {d0['date_from']} 到 {d1['date_from']} 之間如何演變？"
+                    "請引用所有相關文件。"
                 ),
                 "gold_documents": [f"{d['volume_id']}:{d['document_id']}" for d in picked],
                 "gold_volume_ids": [row["volume_id"]],
                 "answerable": True,
-                "notes": f"{len(picked)} gold documents",
+                "notes": (
+                    f"anchor term '{term}' appears in exactly {len(picked)} documents "
+                    "of this volume; those are the gold set"
+                ),
             }
         )
 
@@ -192,26 +267,32 @@ def build_gold_cases(
         if len([c for c in cases if c["kind"] == "correction"]) >= n_correction:
             break
         docs = _load_docs(row["volume_id"])
-        if not docs:
+        if len(docs) < 8:
             continue
-        d = rng.choice(docs)
-        kws = _keywords(d["text"])
-        if len(kws) < 3:
+        # Anchor on a term unique to one document, then ask about it in everyday
+        # wording rather than the archival phrasing, so a first retrieval that
+        # keys on the paraphrase can miss and the correction has work to do.
+        unique = _rare_entity_docs(docs, lo=1, hi=1)
+        if not unique:
             continue
+        term, (d,) = rng.choice(unique)
         cases.append(
             {
                 "case_id": f"correction-{len(cases):02d}",
                 "kind": "correction",
                 "route": "simple",
                 "question_en": (
-                    f"What was decided in the discussions involving {kws[0]} and {kws[1]}? "
-                    "Use everyday wording, not the archival phrasing."
+                    f"I remember something about {term} being talked over in these "
+                    "papers — what did they end up settling on?"
                 ),
-                "question_zh": f"關於 {kws[0]} 與 {kws[1]} 的討論，最後決定了什麼？",
+                "question_zh": f"我記得這批文件裡談到 {term} 的事，最後是怎麼定案的？",
                 "gold_documents": [f"{d['volume_id']}:{d['document_id']}"],
                 "gold_volume_ids": [row["volume_id"]],
                 "answerable": True,
-                "notes": "paraphrased wording; expects a corrective retrieval",
+                "notes": (
+                    f"anchor term '{term}' is unique to this document in the volume; "
+                    "question is deliberately paraphrased, expects a corrective retrieval"
+                ),
             }
         )
 

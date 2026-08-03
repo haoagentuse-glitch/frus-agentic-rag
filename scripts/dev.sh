@@ -27,6 +27,8 @@ exec docker run --rm -i "${GPU_ARGS[@]}" \
   -e PHOENIX_COLLECTOR_ENDPOINT="${PHOENIX_COLLECTOR_ENDPOINT:-http://localhost:6006}" \
   -e PHOENIX_PROJECT="${PHOENIX_PROJECT:-frus-agentic-rag}" \
   -e PHOENIX_DISABLED="${PHOENIX_DISABLED:-}" \
+  -e GEMINI_API_KEY="${GEMINI_API_KEY:-$(grep -m1 '^GEMINI_API_KEY=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')}" \
+  -e GEMINI_MODEL="${GEMINI_MODEL:-$(grep -m1 '^GEMINI_MODEL=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')}" \
   -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -e TOKENIZERS_PARALLELISM=false \
   --entrypoint "" \
   jobshift:latest "$@"
