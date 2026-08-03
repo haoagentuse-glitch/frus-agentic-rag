@@ -191,18 +191,27 @@ un-embedded chunks never rank as noise.
 
 ## Repository layout
 
+Four packages, one per stage of the pipeline. `models.py` sits at the top
+because every stage shares those types.
+
 ```
 src/frus_agentic_rag/
-  config.py cli.py api.py ui.py observability.py
-  eval_gold.py eval_run.py
-  ingest/{manifest,tei,chunk}.py
-  index/{build,embed}.py
-  retrieval/{models,hybrid,tools}.py
-  agent/{state,schemas,nodes,edges,graph,prompts,run,fakes,smoke}.py
-  generation/{ollama_client,citations,judge}.py
-tests/unit/          eval/       reports/
+  config.py  models.py  cli.py  api.py  ui.py  observability.py
+  corpus/      manifest tei chunk index embed        # build it
+  retrieval/   hybrid tools                          # search it
+  agent/       state schemas prompts nodes edges graph run llm citations fakes smoke
+  evaluation/  gold ablation route judge             # measure it
+
+tests/          four flat test modules; integration ones skip without an index
+docs/           SPEC.md (the build spec), DECISIONS.md, STATE.md
+eval/           gold_cases.jsonl
+reports/        corpus_stats, benchmark, graph_smoke, agent_ablation, route_stability
 Dockerfile  compose.yaml  Phoenix/compose.yaml  scripts/dev.sh
 ```
+
+`Phoenix/` stays a directory on purpose: `docker compose -f Phoenix/compose.yaml`
+treats it as the project directory and reads `Phoenix/.env` for the server's
+variable substitution. Client settings belong in the repo-root `.env`.
 
 ## Quality gates
 

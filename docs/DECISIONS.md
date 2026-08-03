@@ -17,3 +17,5 @@
 - 2026-08-03｜multi-hop gold case 改以「該卷中剛好出現在 2–4 份文件的專有名詞」為錨點，不再從卷內隨機抽文件｜隨機抽樣版本的 retrieval recall 實測 0/30，因為那些文件與問題之間沒有任何關聯，指標本身無效；錨點版本讓 gold set 就是答案集｜若日後取得史學專家撰寫的題庫，直接取代機器草擬版本，並把現有數字降級為回歸測試。
 - 2026-08-03｜answer correctness 用外部 Gemini judge，其餘指標全部確定性｜judge 只評分已產生的答案、不提供任何證據，封閉語料原則不受影響；但它是唯一非確定性指標，因此在報告中單獨標示 judge 名稱與 caveat｜若無 GEMINI_API_KEY，欄位記為 judge:"unavailable" 而非捏造分數。
 - 2026-08-03｜Phoenix 追蹤採手寫 OpenInference span，不用 auto-instrumentor｜LLM 呼叫是裸 httpx 打 Ollama，LangChain instrumentor 看不到；手寫 span 才能帶出 prompt、token count、schema 有效性與檢索到的 chunk｜若日後改用 LangChain chat model，可改掛 openinference-instrumentation-langchain 並移除手寫 LLM span。
+- 2026-08-03｜原始碼改為 corpus/retrieval/agent/evaluation 四個套件，models.py 上移到頂層，generation/ 併入 agent/｜ingest/ 與 index/ 各只有 2–3 個檔案卻分成兩個套件，而 retrieval/models.py 被每一層 import，造成 agent 依賴 retrieval 的錯誤方向｜若某個套件再長到 12 個檔案以上，才考慮再切分。
+- 2026-08-03｜刪除 7 份 scout/plan 文件與 2-step 備份指令（共約 1,970 行）｜那些是建置前的研究輸入，已被實作與 README 取代，留著會與實測數字產生兩套說法；git 歷史仍可追溯｜若要重述決策脈絡，以 DECISIONS.md 為準，不復原 scout 文件。

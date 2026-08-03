@@ -9,9 +9,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from frus_agentic_rag.agent import fakes, run
+from frus_agentic_rag.agent import fakes, llm, run
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.generation import ollama_client
 from frus_agentic_rag.retrieval import tools
 
 # (name, route, subqueries, grade sequence, question, toolbox kwargs, expected outcome)
@@ -73,12 +72,12 @@ async def _run_one(
     client = fakes.FakeClient(route=route, n_subqueries=n_sub, grade_sequence=grades)
 
     tools.set_toolbox(tb)
-    ollama_client._CLIENT = client  # type: ignore[assignment]
+    llm._CLIENT = client  # type: ignore[assignment]
     try:
         result = await run.answer(question, language="en", system="B3")
     finally:
         tools.set_toolbox(None)
-        ollama_client._CLIENT = None
+        llm._CLIENT = None
 
     budgets = get_settings().budgets
     retrieval_rounds = sum(1 for t in result.trace if t.get("node") == "dispatch_retrieval")

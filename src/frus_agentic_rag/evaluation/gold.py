@@ -19,7 +19,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.ingest.manifest import load_manifest
+from frus_agentic_rag.corpus.manifest import load_manifest
 
 SEED = 20260803
 

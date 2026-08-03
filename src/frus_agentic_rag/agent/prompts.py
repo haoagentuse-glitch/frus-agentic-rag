@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from frus_agentic_rag.retrieval.models import Evidence
+from frus_agentic_rag.models import Evidence
 
 PLANNER_SYSTEM = """You plan retrieval over Foreign Relations of the United States (FRUS), \
 a closed corpus of declassified US diplomatic documents. You never answer from memory.

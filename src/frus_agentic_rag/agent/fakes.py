@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from frus_agentic_rag.agent.schemas import AgentAnswer, EvidenceGrade, HopGrade, QueryPlan, SubQuery
-from frus_agentic_rag.retrieval.models import Evidence, SearchFilters
+from frus_agentic_rag.models import Evidence, SearchFilters
 
 
 def fake_evidence(n: int, prefix: str = "frus1969-76v17", hop: str = "main") -> list[Evidence]:

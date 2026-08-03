@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from frus_agentic_rag import observability as obs
 from frus_agentic_rag.agent.graph import SYSTEMS, mermaid
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.retrieval.models import Answer, SearchFilters
+from frus_agentic_rag.models import Answer, SearchFilters
 
 app = FastAPI(
     title="FRUS Bounded Agentic RAG",
@@ -45,8 +45,8 @@ class SearchRequest(BaseModel):
 
 @app.get("/health")
 async def health() -> dict:
-    from frus_agentic_rag.generation.ollama_client import get_client
-    from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
+    from frus_agentic_rag.agent.llm import get_client
+    from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
 
     settings = get_settings()
     out: dict = {"status": "ok", "model": settings.ollama_model}
@@ -70,7 +70,7 @@ async def health() -> dict:
 
 @app.get("/stats")
 async def stats() -> dict:
-    from frus_agentic_rag.index.build import corpus_stats
+    from frus_agentic_rag.corpus.index import corpus_stats
 
     return corpus_stats()
 

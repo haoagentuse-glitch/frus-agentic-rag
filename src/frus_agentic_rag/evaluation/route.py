@@ -16,11 +16,11 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from frus_agentic_rag.agent.llm import get_client
 from frus_agentic_rag.agent.nodes import rule_route
 from frus_agentic_rag.agent.prompts import PLANNER_SYSTEM, planner_user
 from frus_agentic_rag.agent.schemas import QueryPlan
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.generation.ollama_client import get_client
 
 # (intent id, expected route, three paraphrases of the same question)
 INTENTS: list[tuple[str, str, list[str]]] = [

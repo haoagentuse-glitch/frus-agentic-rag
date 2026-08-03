@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from frus_agentic_rag.generation import citations as cite
-from frus_agentic_rag.retrieval.models import Claim, Evidence
+from frus_agentic_rag.agent import citations as cite
+from frus_agentic_rag.models import Claim, Evidence
 
 
 def ev(eid: str = "frus1969-76v17:d4:0", subtype: str = "historical-document") -> Evidence:

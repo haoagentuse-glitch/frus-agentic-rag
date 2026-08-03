@@ -22,7 +22,7 @@ def manifest(
     raw_dir: Path = typer.Option(None, help="Directory of FRUS volume XML"),
 ) -> None:
     """Scan the pinned snapshot: 694 XML -> per-volume inventory with SHA-256."""
-    from frus_agentic_rag.ingest.manifest import build_manifest
+    from frus_agentic_rag.corpus.manifest import build_manifest
 
     table = build_manifest(raw_dir=raw_dir)
     rows = table.to_pylist()
@@ -47,7 +47,7 @@ def ingest(
     bm25: bool = typer.Option(True, help="Build the BM25 index afterwards"),
 ) -> None:
     """Parse TEI to chunk parquet, then load LanceDB and build BM25."""
-    from frus_agentic_rag.index.build import (
+    from frus_agentic_rag.corpus.index import (
         build_bm25_index,
         corpus_stats,
         load_into_lancedb,
@@ -73,7 +73,7 @@ def index(
     reload_parquet: bool = typer.Option(False, "--reload", help="Reload all parquet into LanceDB"),
 ) -> None:
     """Rebuild indexes over already-parsed chunks."""
-    from frus_agentic_rag.index.build import build_ann_index, build_bm25_index, load_into_lancedb
+    from frus_agentic_rag.corpus.index import build_ann_index, build_bm25_index, load_into_lancedb
 
     out: dict = {}
     if reload_parquet:
@@ -94,7 +94,7 @@ def embed(
     limit_volumes: int = typer.Option(None, help="Embed only the first N pending volumes"),
 ) -> None:
     """Run BGE-M3 over parsed chunks, checkpointing per volume."""
-    from frus_agentic_rag.index.embed import embed_all
+    from frus_agentic_rag.corpus.embed import embed_all
 
     # --all means "no cap"; it wins over a stale --limit-volumes on the line.
     _echo(
@@ -114,7 +114,7 @@ def benchmark(
     batch_size: int = typer.Option(None),
 ) -> None:
     """Measure BGE-M3 throughput and project the full-corpus ETA."""
-    from frus_agentic_rag.index.embed import benchmark as run
+    from frus_agentic_rag.corpus.embed import benchmark as run
 
     _echo(run(n_chunks=chunks, device=device, batch_size=batch_size))
 
@@ -122,7 +122,7 @@ def benchmark(
 @app.command()
 def stats() -> None:
     """Write reports/corpus_stats.json and print it."""
-    from frus_agentic_rag.index.build import corpus_stats
+    from frus_agentic_rag.corpus.index import corpus_stats
 
     _echo(corpus_stats())
 
@@ -134,8 +134,8 @@ def search(
     volume: list[str] = typer.Option(None),
 ) -> None:
     """Raw hybrid retrieval, no generation. Useful for eyeballing recall."""
+    from frus_agentic_rag.models import SearchFilters
     from frus_agentic_rag.retrieval.hybrid import hybrid_search_sync
-    from frus_agentic_rag.retrieval.models import SearchFilters
 
     hits = hybrid_search_sync(
         query, SearchFilters(volume_ids=list(volume) if volume else []), top_k
@@ -192,7 +192,7 @@ def gold_build(
     out: Path = typer.Option(Path("eval/gold_cases.jsonl")),
 ) -> None:
     """Draft gold cases from the corpus. Output is marked as needing human review."""
-    from frus_agentic_rag.eval_gold import build_gold_cases
+    from frus_agentic_rag.evaluation.gold import build_gold_cases
 
     _echo(build_gold_cases(n_lookup, n_multihop, n_correction, n_unanswerable, out))
 
@@ -202,7 +202,7 @@ def route_stability() -> None:
     """10 intents x 3 paraphrases: does the same question route the same way?"""
     import asyncio
 
-    from frus_agentic_rag.eval_route import run_route_stability
+    from frus_agentic_rag.evaluation.route import run_route_stability
 
     _echo(asyncio.run(run_route_stability()))
 
@@ -219,7 +219,7 @@ def eval_cmd(
     """Run the bilingual ablation and write reports/agent_ablation.json."""
     import asyncio
 
-    from frus_agentic_rag.eval_run import run_ablation
+    from frus_agentic_rag.evaluation.ablation import run_ablation
 
     _echo(
         asyncio.run(

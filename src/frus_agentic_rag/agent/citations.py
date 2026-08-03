@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from frus_agentic_rag.retrieval.models import Claim, Evidence, canonical_url
+from frus_agentic_rag.models import Claim, Evidence, canonical_url
 
 CHUNK_ID_RE = re.compile(r"^[A-Za-z0-9\-.]+:[A-Za-z0-9_\-.]+:\d+$")
 URL_RE = re.compile(r"https?://\S+")
@@ -20,7 +20,7 @@ CITABLE_SUBTYPES = {"historical-document"}
 
 @lru_cache(maxsize=1)
 def _published_volumes() -> frozenset[str]:
-    from frus_agentic_rag.ingest.manifest import load_manifest
+    from frus_agentic_rag.corpus.manifest import load_manifest
 
     try:
         rows = load_manifest().to_pylist()

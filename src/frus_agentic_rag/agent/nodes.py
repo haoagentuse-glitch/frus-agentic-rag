@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import re
 
+from frus_agentic_rag.agent import citations as cite
+from frus_agentic_rag.agent.llm import StructuredOutputError, get_client
 from frus_agentic_rag.agent.prompts import (
     ABSTAIN_EN,
     ABSTAIN_ZH,
@@ -25,9 +27,7 @@ from frus_agentic_rag.agent.schemas import (
 )
 from frus_agentic_rag.agent.state import AgentState, NodeTimer
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.generation import citations as cite
-from frus_agentic_rag.generation.ollama_client import StructuredOutputError, get_client
-from frus_agentic_rag.retrieval.models import Claim, SearchFilters
+from frus_agentic_rag.models import Claim, SearchFilters
 from frus_agentic_rag.retrieval.tools import get_toolbox
 
 _CJK = re.compile(r"[一-鿿]")

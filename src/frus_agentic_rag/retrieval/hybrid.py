@@ -11,8 +11,8 @@ import asyncio
 import re
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
-from frus_agentic_rag.retrieval.models import Evidence, SearchFilters
+from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
+from frus_agentic_rag.models import Evidence, SearchFilters
 
 _COLS = [
     "chunk_id",
@@ -75,7 +75,7 @@ def bm25_search(query: str, filters: SearchFilters, limit: int) -> list[dict]:
 
 
 def dense_search(query: str, filters: SearchFilters, limit: int) -> list[dict]:
-    from frus_agentic_rag.index.embed import encode
+    from frus_agentic_rag.corpus.embed import encode
 
     tbl = _open()
     vec = encode([query])[0]

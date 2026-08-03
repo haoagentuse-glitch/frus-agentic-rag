@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from frus_agentic_rag.agent import fakes, run
+from frus_agentic_rag.agent import fakes, llm, run
 from frus_agentic_rag.agent.smoke import PATHS, run_smoke
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.generation import ollama_client
 from frus_agentic_rag.retrieval import tools
 
 
@@ -17,11 +16,11 @@ def wired():
 
     def _install(tb: fakes.FakeToolbox, client: fakes.FakeClient) -> None:
         tools.set_toolbox(tb)  # type: ignore[arg-type]
-        ollama_client._CLIENT = client  # type: ignore[assignment]
+        llm._CLIENT = client  # type: ignore[assignment]
 
     yield _install
     tools.set_toolbox(None)
-    ollama_client._CLIENT = None
+    llm._CLIENT = None
 
 
 @pytest.mark.parametrize(

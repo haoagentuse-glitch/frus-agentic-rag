@@ -12,7 +12,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.retrieval.models import Chunk, FrusDocument
+from frus_agentic_rag.models import Chunk, FrusDocument
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerFast

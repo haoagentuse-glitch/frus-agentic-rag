@@ -12,8 +12,8 @@ from typing import Protocol
 
 from frus_agentic_rag import observability as obs
 from frus_agentic_rag.config import get_settings
+from frus_agentic_rag.models import Evidence, SearchFilters, canonical_url
 from frus_agentic_rag.retrieval.hybrid import _COLS, _open, hybrid_search
-from frus_agentic_rag.retrieval.models import Evidence, SearchFilters, canonical_url
 
 
 class Toolbox(Protocol):
@@ -150,7 +150,7 @@ class LiveToolbox:
         """Answer 'is this published?' from the manifest, never from the model."""
 
         def _run() -> dict:
-            from frus_agentic_rag.ingest.manifest import load_manifest
+            from frus_agentic_rag.corpus.manifest import load_manifest
 
             rows = load_manifest().to_pylist()
             needle = volume_or_period.lower().strip()

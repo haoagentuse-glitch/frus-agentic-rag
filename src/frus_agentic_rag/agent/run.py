@@ -6,14 +6,14 @@ import time
 from typing import Any, cast
 
 from frus_agentic_rag import observability as obs
+from frus_agentic_rag.agent import citations as cite
 from frus_agentic_rag.agent.graph import build_graph
+from frus_agentic_rag.agent.llm import get_client
 from frus_agentic_rag.agent.nodes import detect_language
 from frus_agentic_rag.agent.schemas import Language
 from frus_agentic_rag.agent.state import new_state
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.generation import citations as cite
-from frus_agentic_rag.generation.ollama_client import get_client
-from frus_agentic_rag.retrieval.models import Answer, Claim, Evidence
+from frus_agentic_rag.models import Answer, Claim, Evidence
 
 
 async def answer(
@@ -80,7 +80,7 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
     """
     from frus_agentic_rag.agent.prompts import SYNTH_SYSTEM_EN, SYNTH_SYSTEM_ZH, synth_user
     from frus_agentic_rag.agent.schemas import AgentAnswer
-    from frus_agentic_rag.retrieval.models import SearchFilters
+    from frus_agentic_rag.models import SearchFilters
     from frus_agentic_rag.retrieval.tools import get_toolbox
 
     language = cast(Language, language or detect_language(question))

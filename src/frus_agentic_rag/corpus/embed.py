@@ -17,7 +17,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
+from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
 
 _MODEL: Any = None
 
@@ -264,7 +264,7 @@ def benchmark(
 
 def _estimate_total_chunks() -> int:
     """Extrapolate full-corpus chunk count from parsed volumes and the manifest."""
-    from frus_agentic_rag.ingest.manifest import load_manifest
+    from frus_agentic_rag.corpus.manifest import load_manifest
 
     settings = get_settings()
     files = sorted(settings.chunks_dir.glob("*.parquet"))

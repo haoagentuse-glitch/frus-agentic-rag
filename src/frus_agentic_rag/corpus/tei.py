@@ -13,7 +13,7 @@ from pathlib import Path
 from lxml import etree
 
 from frus_agentic_rag.config import TEI_NS, get_settings
-from frus_agentic_rag.retrieval.models import FrusDocument
+from frus_agentic_rag.models import FrusDocument
 
 FRUS_NS = "http://history.state.gov/frus/ns/1.0"
 T = f"{{{TEI_NS}}}"

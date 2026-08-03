@@ -15,7 +15,7 @@ import pyarrow.parquet as pq
 from lxml import etree
 
 from frus_agentic_rag.config import FRUS_SOURCE_COMMIT, TEI_NS, XML_NS, get_settings
-from frus_agentic_rag.retrieval.models import VolumeMeta
+from frus_agentic_rag.models import VolumeMeta
 
 T = f"{{{TEI_NS}}}"
 X = f"{{{XML_NS}}}"

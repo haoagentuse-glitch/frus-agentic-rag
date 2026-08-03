@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from lxml import etree
 
-from frus_agentic_rag.ingest import tei
-from frus_agentic_rag.ingest.manifest import read_volume_meta
+from frus_agentic_rag.corpus import tei
+from frus_agentic_rag.corpus.manifest import read_volume_meta
 
 FIXTURE = """<?xml version="1.0" encoding="UTF-8"?>
 <TEI xmlns="http://www.tei-c.org/ns/1.0"

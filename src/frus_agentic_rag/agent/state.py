@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal, TypedDict
 
 from frus_agentic_rag import observability as obs
 from frus_agentic_rag.agent.schemas import HopGrade, Language, Route, SubQuery
-from frus_agentic_rag.retrieval.models import Evidence
+from frus_agentic_rag.models import Evidence
 
 
 class TraceEvent(TypedDict, total=False):

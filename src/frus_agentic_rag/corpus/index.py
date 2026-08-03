@@ -16,10 +16,10 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.ingest.chunk import chunk_document
-from frus_agentic_rag.ingest.manifest import load_manifest
-from frus_agentic_rag.ingest.tei import iter_documents
-from frus_agentic_rag.retrieval.models import Chunk
+from frus_agentic_rag.corpus.chunk import chunk_document
+from frus_agentic_rag.corpus.manifest import load_manifest
+from frus_agentic_rag.corpus.tei import iter_documents
+from frus_agentic_rag.models import Chunk
 
 CHUNKS_TABLE = "chunks"
 

@@ -9,9 +9,9 @@ from __future__ import annotations
 import pytest
 
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
+from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
+from frus_agentic_rag.models import SearchFilters
 from frus_agentic_rag.retrieval.hybrid import build_where, hybrid_search_sync
-from frus_agentic_rag.retrieval.models import SearchFilters
 
 pytestmark = pytest.mark.integration
 
@@ -42,7 +42,7 @@ def test_index_matches_the_parsed_corpus(table):
 
 @requires_index
 def test_only_published_volumes_are_indexed(table):
-    from frus_agentic_rag.ingest.manifest import load_manifest
+    from frus_agentic_rag.corpus.manifest import load_manifest
 
     published = {r["volume_id"] for r in load_manifest().to_pylist() if r["status"] == "published"}
     indexed = {r["volume_id"] for r in table.search().select(["volume_id"]).limit(20000).to_list()}

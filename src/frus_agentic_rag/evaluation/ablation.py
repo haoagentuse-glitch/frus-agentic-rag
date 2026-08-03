@@ -17,7 +17,7 @@ from typing import Any
 
 from frus_agentic_rag.agent.nodes import rule_route
 from frus_agentic_rag.config import get_settings
-from frus_agentic_rag.eval_gold import load_cases
+from frus_agentic_rag.evaluation.gold import load_cases
 
 SYSTEM_ROUTES = {"lookup", "simple", "timeline", "complex", "status"}
 
@@ -34,7 +34,7 @@ def _retrieved_docs(answer) -> set[str]:
 async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> dict:
     from frus_agentic_rag.agent.run import answer as run_answer
     from frus_agentic_rag.agent.run import answer_2step
-    from frus_agentic_rag.generation import judge as judge_mod
+    from frus_agentic_rag.evaluation import judge as judge_mod
 
     question = case["question_zh"] if language == "zh-TW" else case["question_en"]
     gold = set(case.get("gold_documents", []))
@@ -201,7 +201,7 @@ def retriever_fingerprint() -> dict:
     alone. Resuming a sweep across that boundary would silently average
     BM25-only runs with hybrid runs, which is worse than having no number.
     """
-    from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
+    from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
 
     try:
         tbl = connect().open_table(CHUNKS_TABLE)
@@ -242,7 +242,7 @@ async def run_ablation(
     out: Path | None = None,
     resume: bool = True,
 ) -> dict:
-    from frus_agentic_rag.generation import judge as judge_mod
+    from frus_agentic_rag.evaluation import judge as judge_mod
 
     settings = get_settings()
     cases = load_cases(cases_path)
