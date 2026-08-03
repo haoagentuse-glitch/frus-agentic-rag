@@ -193,17 +193,44 @@ def summarise(rows: list[dict]) -> dict:
     }
 
 
-def _load_completed(path: Path) -> dict[tuple[str, str, str], dict]:
+def retriever_fingerprint() -> dict:
+    """What the retriever actually was for a run.
+
+    Before the dense index exists, `dense_search` filters on `embedded = true`
+    and returns nothing, so RRF fuses one arm and every number describes BM25
+    alone. Resuming a sweep across that boundary would silently average
+    BM25-only runs with hybrid runs, which is worse than having no number.
+    """
+    from frus_agentic_rag.index.build import CHUNKS_TABLE, connect
+
+    try:
+        tbl = connect().open_table(CHUNKS_TABLE)
+        rows = tbl.count_rows()
+        embedded = tbl.count_rows("embedded = true")
+    except Exception:
+        return {"rows": 0, "embedded": 0, "mode": "unavailable"}
+    return {
+        "rows": rows,
+        "embedded": embedded,
+        "mode": "bm25-only" if embedded == 0 else ("hybrid" if embedded == rows else "partial"),
+    }
+
+
+def _load_completed(path: Path, fingerprint: dict) -> tuple[dict[tuple[str, str, str], dict], int]:
     if not path.exists():
-        return {}
+        return {}, 0
     done: dict[tuple[str, str, str], dict] = {}
+    discarded = 0
     with path.open(encoding="utf-8") as fh:
         for line in fh:
             if not line.strip():
                 continue
             r = json.loads(line)
+            if r.get("retriever", {}).get("mode") != fingerprint["mode"]:
+                discarded += 1
+                continue
             done[(r["system"], r["language"], r["case_id"])] = r
-    return done
+    return done, discarded
 
 
 async def run_ablation(
@@ -231,9 +258,21 @@ async def run_ablation(
         "ablation_runs.jsonl"
     )
     runs_path.parent.mkdir(parents=True, exist_ok=True)
-    completed = _load_completed(runs_path) if resume else {}
+    fingerprint = retriever_fingerprint()
+    completed, discarded = _load_completed(runs_path, fingerprint) if resume else ({}, 0)
     if not resume and runs_path.exists():
         runs_path.unlink()
+    print(
+        f"retriever: {fingerprint['mode']} "
+        f"({fingerprint['embedded']}/{fingerprint['rows']} chunks embedded)",
+        flush=True,
+    )
+    if discarded:
+        print(
+            f"discarding {discarded} checkpointed runs from a different retriever mode; "
+            "they will be re-run",
+            flush=True,
+        )
 
     rows: list[dict] = []
     per_system: dict[str, dict] = {}
@@ -251,6 +290,7 @@ async def run_ablation(
                     rows.append(completed[key])
                     continue
                 r = await _run_case(case, system, language, use_judge)
+                r["retriever"] = fingerprint
                 sys_rows.append(r)
                 rows.append(r)
                 with runs_path.open("a", encoding="utf-8") as fh:
@@ -280,6 +320,7 @@ async def run_ablation(
                 "evaluation of historical accuracy."
             ),
         },
+        "retriever": fingerprint,
         "judge": {
             "state": judge_state,
             "model": judge_mod.os.getenv("GEMINI_MODEL", "") if judge_state == "enabled" else "",
