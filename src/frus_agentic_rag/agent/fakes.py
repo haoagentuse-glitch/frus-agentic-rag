@@ -132,7 +132,6 @@ class FakeClient:
                         hop_id="h0",
                         verdict=verdict,  # type: ignore[arg-type]
                         accepted_evidence_ids=ids,
-                        missing="" if verdict == "supported" else "the specific date",
                         corrective_query="" if verdict == "supported" else "corrected query",
                     )
                 ],

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 from typing import Protocol
 
+from frus_agentic_rag import observability as obs
 from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.retrieval.hybrid import _COLS, _open, hybrid_search
 from frus_agentic_rag.retrieval.models import Evidence, SearchFilters, canonical_url
@@ -63,7 +64,13 @@ class LiveToolbox:
     async def hybrid_search(
         self, query: str, filters: SearchFilters, top_k: int = 10, hop: str = ""
     ) -> list[Evidence]:
-        return await hybrid_search(query, filters, top_k, hop)
+        with obs.retriever_span(
+            "hybrid_search", query, **{"frus.hop": hop, "frus.top_k": top_k,
+                                       "frus.filters": filters.model_dump(exclude_defaults=True)}
+        ) as sp:
+            hits = await hybrid_search(query, filters, top_k, hop)
+            obs.record_documents(sp, hits)
+        return hits
 
     async def lookup_document(self, volume_id: str, document_id: str) -> list[Evidence]:
         def _run() -> list[Evidence]:
@@ -99,8 +106,13 @@ class LiveToolbox:
                 "date_to": date_to or filters.date_to,
             }
         )
-        hits = await hybrid_search(query, merged, top_k, hop)
-        hits.sort(key=lambda e: (e.date_from or "9999", e.evidence_id))
+        with obs.retriever_span(
+            "timeline_search", query,
+            **{"frus.hop": hop, "frus.date_from": date_from, "frus.date_to": date_to},
+        ) as sp:
+            hits = await hybrid_search(query, merged, top_k, hop)
+            hits.sort(key=lambda e: (e.date_from or "9999", e.evidence_id))
+            obs.record_documents(sp, hits)
         return hits
 
     async def get_adjacent_context(self, chunk_id: str) -> list[Evidence]:

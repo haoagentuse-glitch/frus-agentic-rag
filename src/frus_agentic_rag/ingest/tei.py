@@ -31,6 +31,21 @@ def _clean(s: str) -> str:
     return " ".join(s.split())
 
 
+def _is_element(el: etree._Element) -> bool:
+    """Comments and processing instructions carry a callable tag, not a string.
+
+    lxml raises `ValueError: Input object is not an XML element` rather than
+    iterating text on them, and some volumes carry comments inside document divs.
+    """
+    return isinstance(el.tag, str)
+
+
+def _itertext(el: etree._Element) -> str:
+    if not _is_element(el):
+        return el.tail or ""
+    return "".join(el.itertext())
+
+
 def _body_text(div: etree._Element) -> str:
     """Text of the document with footnotes and page breaks stripped out.
 
@@ -40,7 +55,7 @@ def _body_text(div: etree._Element) -> str:
     parts: list[str] = []
 
     def walk(el: etree._Element) -> None:
-        if el.tag in _BODY_SKIP and el is not div:
+        if not _is_element(el) or (el.tag in _BODY_SKIP and el is not div):
             # Keep the tail: text after </note> belongs to the parent sentence.
             if el.tail:
                 parts.append(el.tail)
@@ -62,8 +77,8 @@ def _head_text(div: etree._Element) -> str:
         return ""
     parts = [head.text or ""]
     for child in head:
-        if child.tag not in _APPARATUS:
-            parts.append("".join(child.itertext()))
+        if _is_element(child) and child.tag not in _APPARATUS:
+            parts.append(_itertext(child))
         if child.tail:
             parts.append(child.tail)
     return _clean("".join(parts))
@@ -73,13 +88,13 @@ def _source_note(div: etree._Element) -> str:
     note = div.find(f"{T}head/{T}note[@type='source']")
     if note is None:
         return ""
-    return _clean("".join(note.itertext()))
+    return _clean(_itertext(note))
 
 
 def _persons(div: etree._Element) -> list[str]:
     seen: dict[str, None] = {}
     for p in div.iter(f"{T}persName"):
-        name = _clean("".join(p.itertext()))
+        name = _clean(_itertext(p))
         if name:
             seen.setdefault(name, None)
     return list(seen)[:40]
@@ -88,9 +103,9 @@ def _persons(div: etree._Element) -> list[str]:
 def _date_display(div: etree._Element) -> str:
     dl = div.find(f"{T}opener/{T}dateline")
     if dl is not None:
-        return _clean("".join(dl.itertext()))
+        return _clean(_itertext(dl))
     d = div.find(f".//{T}date[@when]")
-    return _clean("".join(d.itertext())) if d is not None else ""
+    return _clean(_itertext(d)) if d is not None else ""
 
 
 def iter_documents(

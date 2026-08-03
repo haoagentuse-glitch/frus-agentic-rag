@@ -24,6 +24,9 @@ exec docker run --rm -i "${GPU_ARGS[@]}" \
   -e FRUS_BGE_MODEL_PATH="/models/hf-hub/models--BAAI--bge-m3/snapshots/$SNAP" \
   -e FRUS_EMBED_DEVICE="${FRUS_EMBED_DEVICE:-cpu}" \
   -e FRUS_OLLAMA_HOST="${FRUS_OLLAMA_HOST:-http://localhost:11434}" \
+  -e PHOENIX_COLLECTOR_ENDPOINT="${PHOENIX_COLLECTOR_ENDPOINT:-http://localhost:6006}" \
+  -e PHOENIX_PROJECT="${PHOENIX_PROJECT:-frus-agentic-rag}" \
+  -e PHOENIX_DISABLED="${PHOENIX_DISABLED:-}" \
   -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -e TOKENIZERS_PARALLELISM=false \
   --entrypoint "" \
   jobshift:latest "$@"

@@ -38,8 +38,19 @@ For each hop:
 - unsupported: nothing relevant.
 
 accepted_evidence_ids must be copied verbatim from the EVIDENCE ids shown. \
-Never invent an id. If a hop is partial or unsupported, write what is missing and \
-one corrective English query that would find it."""
+Never invent an id.
+
+If a hop is partial or unsupported, give corrective_query: ONE short English \
+retrieval query, under 20 words, that would find the missing fact. Do not explain \
+your reasoning anywhere in the JSON — only the fields, and keep them terse."""
+
+
+# Qwen3 4B at num_ctx 8192 degrades — and then read-times-out — well before the
+# window is full. These caps keep the grader prompt near 2k tokens.
+GRADER_MAX_EVIDENCE = 6
+GRADER_EVIDENCE_CHARS = 700
+SYNTH_MAX_EVIDENCE = 8
+SYNTH_EVIDENCE_CHARS = 1100
 
 
 def _fmt_evidence(evidence: list[Evidence], max_chars: int = 1200) -> str:
@@ -57,7 +68,8 @@ def grader_user(question: str, hops: list[str], evidence: list[Evidence]) -> str
     hop_list = "\n".join(f"- {h}" for h in hops) or "- (single hop) answer the question"
     return (
         f"QUESTION:\n{question}\n\nHOPS TO COVER:\n{hop_list}\n\n"
-        f"EVIDENCE:\n{_fmt_evidence(evidence)}\n\nReturn the grade as JSON."
+        f"EVIDENCE:\n{_fmt_evidence(evidence[:GRADER_MAX_EVIDENCE], GRADER_EVIDENCE_CHARS)}\n\n"
+        "Return the grade as JSON."
     )
 
 
@@ -82,9 +94,12 @@ Rules:
 
 
 def synth_user(question: str, evidence: list[Evidence]) -> str:
+    body = _fmt_evidence(evidence[:SYNTH_MAX_EVIDENCE], SYNTH_EVIDENCE_CHARS)
     return (
-        f"QUESTION:\n{question}\n\nEVIDENCE:\n{_fmt_evidence(evidence, 1800)}\n\n"
-        "Return the answer as JSON."
+        f"QUESTION:\n{question}\n\nEVIDENCE:\n{body}\n\n"
+        "Return the answer as JSON. claims must not be empty: every sentence of "
+        "answer_text has to be backed by at least one claim carrying evidence ids "
+        "copied verbatim from the ids above."
     )
 
 

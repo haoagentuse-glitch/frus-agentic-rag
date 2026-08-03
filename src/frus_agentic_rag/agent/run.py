@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from frus_agentic_rag import observability as obs
 from frus_agentic_rag.agent.graph import build_graph
 from frus_agentic_rag.agent.nodes import detect_language
 from frus_agentic_rag.agent.state import new_state
@@ -24,6 +25,7 @@ async def answer(
     language = language or detect_language(question)
     client = get_client()
     client.calls = 0
+    obs.setup()
 
     t0 = time.perf_counter()
     graph = build_graph(system, checkpointer=checkpointer)
@@ -31,7 +33,16 @@ async def answer(
         "recursion_limit": get_settings().budgets.recursion_limit,
         "configurable": {"thread_id": thread_id or f"{system}-{abs(hash(question))}"},
     }
-    final = await graph.ainvoke(new_state(question, language, system), config=config)  # type: ignore[arg-type]
+    with obs.span(f"frus.answer.{system}", kind="AGENT", **{
+        "frus.system": system, "frus.language": language
+    }) as root:
+        obs.set_input(root, question)
+        final = await graph.ainvoke(new_state(question, language, system), config=config)  # type: ignore[arg-type]
+        obs.set_output(root, {
+            "outcome": final.get("outcome"),
+            "answer": (final.get("draft_answer") or "")[:2000],
+            "citations": final.get("citations", []),
+        })
     latency = time.perf_counter() - t0
 
     evidence: list[Evidence] = final.get("evidence", [])

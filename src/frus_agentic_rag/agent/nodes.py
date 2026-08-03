@@ -108,6 +108,9 @@ async def plan_query(state: AgentState) -> dict:
         subs = plan.subqueries[: budgets.max_subqueries]
         if plan.needs_retrieval and not subs:
             subs = [SubQuery(hop_id="main", query=question)]
+        # The model returns things like "/FRUS/1862/01" here; hop ids are used
+        # as dict keys and trace labels, so normalise them to positional slugs.
+        subs = [s.model_copy(update={"hop_id": f"h{i}"}) for i, s in enumerate(subs)]
 
         ev["route"] = plan.route
         ev["llm_calls"] = 1
@@ -198,15 +201,36 @@ async def dispatch_retrieval(state: AgentState) -> dict:
 
 
 def _merge(existing: list, fresh: list) -> list:
-    """Dedupe by chunk id, keeping the best score and the first hop that found it."""
-    by_id = {e.evidence_id: e for e in existing}
-    for e in fresh:
+    """Dedupe by chunk id, then interleave hops round-robin.
+
+    Sorting the pooled list by score would be wrong: RRF scores from different
+    subqueries are not on a comparable scale, so one strong hop can take every
+    slot the grader sees and a genuine multi-hop question then grades as
+    unsupported on a hop that was actually retrieved.
+    """
+    by_id: dict[str, object] = {}
+    for e in [*existing, *fresh]:
         prev = by_id.get(e.evidence_id)
         if prev is None:
             by_id[e.evidence_id] = e
-        elif e.score > prev.score:
-            by_id[e.evidence_id] = e.model_copy(update={"hop": prev.hop or e.hop})
-    return sorted(by_id.values(), key=lambda e: e.score, reverse=True)
+        elif e.score > prev.score:  # type: ignore[attr-defined]
+            by_id[e.evidence_id] = e.model_copy(update={"hop": prev.hop or e.hop})  # type: ignore[attr-defined]
+
+    per_hop: dict[str, list] = {}
+    for e in sorted(by_id.values(), key=lambda x: x.score, reverse=True):  # type: ignore[attr-defined]
+        per_hop.setdefault(e.hop or "main", []).append(e)  # type: ignore[attr-defined]
+
+    ordered: list = []
+    queues = list(per_hop.values())
+    i = 0
+    while any(queues):
+        q = queues[i % len(queues)]
+        if q:
+            ordered.append(q.pop(0))
+        i += 1
+        if i > 10_000:  # defensive: never spin on a malformed queue set
+            break
+    return ordered
 
 
 async def grade_evidence(state: AgentState) -> dict:
@@ -261,7 +285,7 @@ async def grade_evidence(state: AgentState) -> dict:
             hallucinated.extend(i for i in hop.accepted_evidence_ids if i not in valid)
             accepted.extend(good)
             if hop.verdict != "supported":
-                missing.append(hop.corrective_query or hop.missing or hop.hop_id)
+                missing.append(hop.corrective_query or hop.hop_id)
 
         ev["llm_calls"] = 1
         ev["detail"] = {

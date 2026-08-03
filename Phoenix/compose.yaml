@@ -1,0 +1,37 @@
+# Phoenix 觀測服務（服務端設定）。
+#
+# 這裡的值可用同目錄的 Phoenix/.env 覆寫——`docker compose -f Phoenix/compose.yaml`
+# 會把 Phoenix/ 當專案目錄，自動讀該目錄的 .env 做變數替換（已實測）。
+#
+# 客戶端設定（PHOENIX_COLLECTOR_ENDPOINT / PHOENIX_PROJECT / PHOENIX_API_KEY）
+# 是 spider_forge 程式讀的，放 **repo 根的 .env**；本 container 讀不到也不需要。
+# 這個 container 的環境只有下面明列的變數：沒有 env_file、沒掛載 repo，
+# 所以拿不到任何 LLM 金鑰。
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:${PHOENIX_IMAGE_TAG:-latest}
+    container_name: spider-forge-phoenix
+    restart: unless-stopped
+
+    ports:
+      - "${PHOENIX_UI_PORT:-6006}:6006" # Web UI + OTLP HTTP
+      - "${PHOENIX_GRPC_PORT:-4317}:4317" # OTLP gRPC
+
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+
+      # 本機使用可先關閉 UI telemetry
+      PHOENIX_TELEMETRY_ENABLED: "${PHOENIX_TELEMETRY_ENABLED:-false}"
+
+      # 暫時不使用 Phoenix MCP
+      PHOENIX_ENABLE_MCP_SERVER: "${PHOENIX_ENABLE_MCP_SERVER:-false}"
+
+      # Trace 保留天數；0 代表無期限
+      PHOENIX_DEFAULT_RETENTION_POLICY_DAYS: "${PHOENIX_RETENTION_DAYS:-90}"
+
+    volumes:
+      - phoenix_data:/mnt/data
+
+volumes:
+  phoenix_data:

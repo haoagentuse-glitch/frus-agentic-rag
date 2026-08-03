@@ -15,6 +15,7 @@ from typing import TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from frus_agentic_rag import observability as obs
 from frus_agentic_rag.config import get_settings
 
 T = TypeVar("T", bound=BaseModel)
@@ -32,6 +33,7 @@ class OllamaClient:
         self.num_ctx = settings.ollama_num_ctx
         self.temperature = settings.ollama_temperature
         self.timeout = settings.ollama_timeout_s
+        self.num_predict = settings.ollama_num_predict
         self.calls = 0
 
     async def _post(self, payload: dict) -> dict:
@@ -52,6 +54,10 @@ class OllamaClient:
                 "temperature": self.temperature,
                 "num_ctx": self.num_ctx,
                 "top_p": 1.0,
+                # Backstop for runaway grammar-constrained decoding. The schema
+                # maxItems bounds should make this unreachable; it is here so a
+                # schema change can never cost a 5-minute timeout again.
+                "num_predict": self.num_predict,
             },
         }
         if fmt is not None:
@@ -60,8 +66,11 @@ class OllamaClient:
 
     async def generate(self, system: str, user: str) -> str:
         self.calls += 1
-        data = await self._post(self._payload(system, user, None))
-        return data["message"]["content"]
+        with obs.llm_span(self.model, system, user) as sp:
+            data = await self._post(self._payload(system, user, None))
+            content = data["message"]["content"]
+            obs.record_llm_output(sp, content, data)
+        return content
 
     async def structured(self, system: str, user: str, schema: type[T]) -> T:
         """One retry with the validation error fed back, then give up."""
@@ -71,17 +80,25 @@ class OllamaClient:
 
         for attempt in range(2):
             self.calls += 1
-            data = await self._post(self._payload(system, prompt, fmt))
-            raw = data["message"]["content"]
-            try:
-                return schema.model_validate_json(raw)
-            except (ValidationError, json.JSONDecodeError) as exc:
-                last = exc
-                if attempt == 0:
-                    prompt = (
-                        f"{user}\n\nYour previous reply was rejected by the schema:\n"
-                        f"{str(exc)[:600]}\nReturn only valid JSON for the schema."
-                    )
+            with obs.llm_span(self.model, system, prompt, schema=schema.__name__) as sp:
+                data = await self._post(self._payload(system, prompt, fmt))
+                raw = data["message"]["content"]
+                obs.record_llm_output(sp, raw, data)
+                try:
+                    parsed = schema.model_validate_json(raw)
+                except (ValidationError, json.JSONDecodeError) as exc:
+                    last = exc
+                    if sp is not None:
+                        sp.set_attribute("frus.schema_valid", False)
+                else:
+                    if sp is not None:
+                        sp.set_attribute("frus.schema_valid", True)
+                    return parsed
+            if attempt == 0:
+                prompt = (
+                    f"{user}\n\nYour previous reply was rejected by the schema:\n"
+                    f"{str(last)[:600]}\nReturn only valid JSON for the schema."
+                )
         raise StructuredOutputError(f"{schema.__name__} invalid after retry: {last}")
 
     async def health(self) -> dict:

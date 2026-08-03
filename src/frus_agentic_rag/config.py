@@ -58,7 +58,8 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen3:4b-instruct"
     ollama_num_ctx: int = 8192
     ollama_temperature: float = 0.0
-    ollama_timeout_s: float = 180.0
+    ollama_timeout_s: float = 90.0
+    ollama_num_predict: int = 1024
 
     # --- retrieval ---------------------------------------------------------
     top_k: int = 10
