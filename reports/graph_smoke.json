@@ -1,0 +1,116 @@
+{
+  "paths": [
+    {
+      "path": "simple",
+      "outcome": "answer",
+      "expected": "answer",
+      "ok": true,
+      "llm_calls": 3,
+      "retrieval_rounds": 1,
+      "tool_calls": 1,
+      "nodes": [
+        "plan_query",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "synthesize",
+        "validate_citations"
+      ],
+      "within_llm_budget": true,
+      "within_retrieval_budget": true,
+      "citations": 1,
+      "abstain_reason": ""
+    },
+    {
+      "path": "complex_multihop",
+      "outcome": "answer",
+      "expected": "answer",
+      "ok": true,
+      "llm_calls": 3,
+      "retrieval_rounds": 1,
+      "tool_calls": 3,
+      "nodes": [
+        "plan_query",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "synthesize",
+        "validate_citations"
+      ],
+      "within_llm_budget": true,
+      "within_retrieval_budget": true,
+      "citations": 1,
+      "abstain_reason": ""
+    },
+    {
+      "path": "correction_empty_retrieval",
+      "outcome": "answer",
+      "expected": "answer",
+      "ok": true,
+      "llm_calls": 3,
+      "retrieval_rounds": 2,
+      "tool_calls": 2,
+      "nodes": [
+        "plan_query",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "rewrite_missing",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "synthesize",
+        "validate_citations"
+      ],
+      "within_llm_budget": true,
+      "within_retrieval_budget": true,
+      "citations": 1,
+      "abstain_reason": ""
+    },
+    {
+      "path": "correction_partial_grade",
+      "outcome": "answer",
+      "expected": "answer",
+      "ok": true,
+      "llm_calls": 4,
+      "retrieval_rounds": 2,
+      "tool_calls": 2,
+      "nodes": [
+        "plan_query",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "rewrite_missing",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "synthesize",
+        "validate_citations"
+      ],
+      "within_llm_budget": true,
+      "within_retrieval_budget": true,
+      "citations": 1,
+      "abstain_reason": ""
+    },
+    {
+      "path": "unanswerable",
+      "outcome": "abstain",
+      "expected": "abstain",
+      "ok": true,
+      "llm_calls": 3,
+      "retrieval_rounds": 2,
+      "tool_calls": 2,
+      "nodes": [
+        "plan_query",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "rewrite_missing",
+        "dispatch_retrieval",
+        "grade_evidence",
+        "abstain"
+      ],
+      "within_llm_budget": true,
+      "within_retrieval_budget": true,
+      "citations": 0,
+      "abstain_reason": "corrected query"
+    }
+  ],
+  "all_terminated": true,
+  "all_expected_outcome": true,
+  "all_within_budget": true,
+  "pass": true
+}

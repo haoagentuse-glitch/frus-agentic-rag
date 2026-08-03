@@ -1,7 +1,10 @@
 .env
 .env.local
 data/
-reports/*.json
+# reports/*.json are tracked on purpose: they are the evidence for every number
+# the README claims. Only the raw per-run dump and logs are too noisy to keep.
+reports/ablation_runs.jsonl
+reports/*.log
 *.lance/
 *.parquet
 .venv/

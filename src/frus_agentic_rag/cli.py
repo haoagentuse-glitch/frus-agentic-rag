@@ -197,6 +197,16 @@ def gold_build(
     _echo(build_gold_cases(n_lookup, n_multihop, n_correction, n_unanswerable, out))
 
 
+@app.command("route-stability")
+def route_stability() -> None:
+    """10 intents x 3 paraphrases: does the same question route the same way?"""
+    import asyncio
+
+    from frus_agentic_rag.eval_route import run_route_stability
+
+    _echo(asyncio.run(run_route_stability()))
+
+
 @app.command("eval")
 def eval_cmd(
     systems: str = typer.Option("B0,B1,B2,B3"),
