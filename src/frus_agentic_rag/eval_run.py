@@ -193,6 +193,19 @@ def summarise(rows: list[dict]) -> dict:
     }
 
 
+def _load_completed(path: Path) -> dict[tuple[str, str, str], dict]:
+    if not path.exists():
+        return {}
+    done: dict[tuple[str, str, str], dict] = {}
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            done[(r["system"], r["language"], r["case_id"])] = r
+    return done
+
+
 async def run_ablation(
     systems: list[str],
     cases_path: Path,
@@ -200,6 +213,7 @@ async def run_ablation(
     limit: int | None = None,
     use_judge: bool = True,
     out: Path | None = None,
+    resume: bool = True,
 ) -> dict:
     from frus_agentic_rag.generation import judge as judge_mod
 
@@ -209,18 +223,40 @@ async def run_ablation(
         cases = cases[:limit]
 
     judge_state = "enabled" if (use_judge and judge_mod.available()) else "unavailable"
+
+    # A full bilingual 5-system sweep is 300 sequential Ollama runs — hours on
+    # one 4060. Each result is appended as it lands so an interrupted sweep can
+    # be resumed, and so partial results are readable while it is still running.
+    runs_path = (out or settings.reports_dir / "agent_ablation.json").with_name(
+        "ablation_runs.jsonl"
+    )
+    runs_path.parent.mkdir(parents=True, exist_ok=True)
+    completed = _load_completed(runs_path) if resume else {}
+    if not resume and runs_path.exists():
+        runs_path.unlink()
+
     rows: list[dict] = []
     per_system: dict[str, dict] = {}
+    total = len(systems) * len(languages) * len(cases)
+    n = 0
 
     for system in systems:
         sys_rows: list[dict] = []
         for language in languages:
             for case in cases:
+                n += 1
+                key = (system, language, case["case_id"])
+                if key in completed:
+                    sys_rows.append(completed[key])
+                    rows.append(completed[key])
+                    continue
                 r = await _run_case(case, system, language, use_judge)
                 sys_rows.append(r)
                 rows.append(r)
+                with runs_path.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(r, ensure_ascii=False) + "\n")
                 print(
-                    f"[{system}/{language}] {r['case_id']}: {r['outcome']} "
+                    f"[{n}/{total}] [{system}/{language}] {r['case_id']}: {r['outcome']} "
                     f"recall={r['all_evidence_recall']} {r['latency_s']}s",
                     flush=True,
                 )

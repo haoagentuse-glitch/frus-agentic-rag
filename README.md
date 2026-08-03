@@ -153,7 +153,7 @@ chunks.
 ## Serving
 
 ```bash
-docker compose up -d api ui     # API :8000, Streamlit :8501
+docker compose up -d api ui     # API :8010, Streamlit :8511
 ```
 
 The UI is a trace viewer, not a chat window: route, subqueries, tool calls,

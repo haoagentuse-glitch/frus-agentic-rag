@@ -204,6 +204,7 @@ def eval_cmd(
     languages: str = typer.Option("zh-TW,en"),
     limit: int = typer.Option(None),
     judge: bool = typer.Option(True, help="Use the external judge for answer correctness"),
+    resume: bool = typer.Option(True, help="Reuse runs already in reports/ablation_runs.jsonl"),
 ) -> None:
     """Run the bilingual ablation and write reports/agent_ablation.json."""
     import asyncio
@@ -218,6 +219,7 @@ def eval_cmd(
                 languages=languages.split(","),
                 limit=limit,
                 use_judge=judge,
+                resume=resume,
             )
         )
     )
