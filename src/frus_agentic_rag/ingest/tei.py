@@ -22,6 +22,9 @@ F = f"{{{FRUS_NS}}}"
 
 # Elements whose text is apparatus, not the document body.
 _APPARATUS = {f"{T}note", f"{T}pb", f"{T}fw"}
+# The head is captured separately and prepended to every chunk, so including it
+# in the body would duplicate the title in chunk 0.
+_BODY_SKIP = _APPARATUS | {f"{T}head"}
 
 
 def _clean(s: str) -> str:
@@ -37,7 +40,7 @@ def _body_text(div: etree._Element) -> str:
     parts: list[str] = []
 
     def walk(el: etree._Element) -> None:
-        if el.tag in _APPARATUS:
+        if el.tag in _BODY_SKIP and el is not div:
             # Keep the tail: text after </note> belongs to the parent sentence.
             if el.tail:
                 parts.append(el.tail)
