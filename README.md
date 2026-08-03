@@ -40,23 +40,30 @@ Everything in this section was produced by running the system on this machine
 | `editorial-note` (kept, never citable) | 8,467 |
 | Chunks (512 BGE-M3 tokens, 64 overlap) | 723,557 |
 | **BM25 coverage** | **552 / 552 volumes** |
+| **Dense coverage** | **723,557 / 723,557 chunks** (552 / 552 volumes) |
 | BGE-M3 throughput (fp16, batch 16, 10k sample) | **32.4 chunks/s**, peak 1.26 GiB VRAM |
-| Full dense-index ETA | **6.2 h** (8.1 h with a 30 % buffer) |
+| Full dense index, measured | ETA 6.2 h · **completed** |
+| Route consistency under paraphrase (10 intents × 3) | **0.80** LLM vs 0.40 rule-first |
+| Route accuracy | **0.90** LLM vs 0.80 rule-first |
+| Structured-output valid rate | **1.00** (30/30) |
 | Graph termination (`frus graph-smoke`) | 5/5 paths, all within budget |
-| Unit tests | 29 passed · ruff + mypy clean |
+| Tests | 44 passed · ruff + mypy clean |
 
-See `reports/corpus_stats.json`, `reports/benchmark.json`, `reports/graph_smoke.json`.
+See `reports/corpus_stats.json`, `benchmark.json`, `graph_smoke.json`,
+`route_stability.json`.
+
+The route numbers settle two pre-registered gates. Gate 6 (consistency ≥ 0.80)
+passes at exactly 0.80, and the rule-first router that gate would have fallen
+back to is *worse* on this corpus — 0.40 consistency, 0.80 accuracy — so the
+LLM router stands on evidence rather than on preference. Gate 11 wanted a 0.95
+structured-output valid rate; it is 1.00, with a median planner latency of
+3.2 s.
 
 ### Known UNKNOWN
 
-These are not measured yet and must not be described as done:
-
-- **Agentic quality gain.** Whether B3 beats B0 by the pre-registered 10 percentage
-  points on multi-hop is what `frus eval` exists to answer. Until
+- **Agentic quality gain.** Whether B3 beats B0 by the pre-registered 10
+  percentage points on multi-hop is what `frus eval` exists to answer. Until
   `reports/agent_ablation.json` says so, this README claims no improvement.
-- **Qwen3 4B router/grader accuracy** across the full 30-case bilingual set.
-- **Dense retrieval quality.** The dense index is not built yet; retrieval is
-  currently BM25-only, and every RRF figure reflects one arm, not two.
 
 ## Base image
 
@@ -128,6 +135,7 @@ correctness needs a model and is reported separately with the judge named
 inventing a score). The judge scores finished answers; it never supplies
 evidence, so the closed-corpus rule is intact.
 
+`reports/route_stability.json` settles gates 6 and 11.
 `reports/agent_ablation.json` evaluates the pre-registered gates literally,
 including the one that says this README may not claim an agentic improvement
 without 10 percentage points of multi-hop gain.
@@ -188,6 +196,42 @@ retrieved.
 **BM25 is built before any vector exists.** A half-finished embedding run still
 leaves a working retriever, and `dense_search` filters on `embedded = true` so
 un-embedded chunks never rank as noise.
+
+### Why both arms are kept
+
+With the dense index built, hybrid retrieval first scored *below* lexical alone
+on the gold set — 0.186 against 0.209. Two findings came out of that.
+
+The IVF_PQ default scans too few partitions on 723k vectors. Dense recall@10
+rose from 0.070 to 0.116 at `nprobes=400, refine_factor=20`, and that alone
+brought fusion back to parity with its lexical arm. RRF is weighted so the
+weaker arm cannot crowd out the stronger one's hits at ranks 5–10.
+
+The weight is **not tuned**. Sweeping it from 0.0 to 1.0 moves the gold-set
+score by at most one document out of 43 — noise on a set that size. Reporting
+the best of those as an improvement would be fitting to it.
+
+So the dense arm is justified on evidence the gold set cannot produce. Asked a
+Chinese question carrying no English anchor, BM25 over this English corpus
+returns nothing at all:
+
+| Query (zh-TW, no English anchor) | BM25 | Dense top hit |
+|---|---|---|
+| 美國承認共產中國的討論 | **0 hits** | Memorandum, Office of Chinese Affairs |
+| 古巴飛彈危機期間的外交電報 | **0 hits** | Telegram From the Embassy in Cuba |
+| 關於巴拿馬運河主權的談判 | **0 hits** | Memorandum From Secretary Rusk to President Johnson |
+| 第二次世界大戰後對日本的佔領政策 | **0 hits** | Report by the State-War-Navy Coordinating Subcommittee for the Far East |
+| 美蘇限制戰略武器談判 | **0 hits** | Telegram From the Delegation to the Strategic Arms Limitation Talks |
+
+That is the entire bilingual capability of this system, and the benchmark is
+blind to it: every generated question embeds English titles and proper nouns,
+so the gold set measures lexical retrieval and understates dense by
+construction. Three regression tests pin the behaviour, because otherwise the
+capability could be lost while every lexical metric stayed green.
+
+The honest summary is that this corpus rewards lexical search for English
+questions and *requires* dense search for Chinese ones, and the gold set can
+only see the first half of that.
 
 ## Repository layout
 

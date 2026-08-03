@@ -1,0 +1,576 @@
+{
+  "n_intents": 10,
+  "paraphrases_per_intent": 3,
+  "n_runs": 30,
+  "model": "qwen3:4b-instruct",
+  "llm_route_consistency": 0.8,
+  "rule_route_consistency": 0.4,
+  "llm_route_accuracy": 0.9,
+  "rule_route_accuracy": 0.8,
+  "structured_output_valid_rate": 1.0,
+  "simple_intents_over_decomposed": 0,
+  "simple_intents_total": 6,
+  "median_latency_s": 3.23,
+  "gate_6": {
+    "threshold": 0.8,
+    "pass": true,
+    "consequence": "route/tool path consistency is at or above 80%; the LLM router stands"
+  },
+  "gate_11_structured_output": {
+    "threshold": 0.95,
+    "pass": true,
+    "consequence": "structured output is reliable"
+  },
+  "intents": [
+    {
+      "intent": "single-doc-lookup",
+      "expected_route": "lookup",
+      "llm_routes": [
+        "lookup",
+        "lookup",
+        "lookup"
+      ],
+      "rule_routes": [
+        "lookup",
+        "lookup",
+        "lookup"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": true,
+      "llm_correct": 3,
+      "rule_correct": 3,
+      "majority_route": "lookup",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        1,
+        1,
+        1
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "What does FRUS document frus1969-76v17 d4 say?",
+          "llm_route": "lookup",
+          "rule_route": "lookup",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 61.21,
+          "schema_valid": true
+        },
+        {
+          "question": "Show me document 4 in the volume frus1969-76v17.",
+          "llm_route": "lookup",
+          "rule_route": "lookup",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.09,
+          "schema_valid": true
+        },
+        {
+          "question": "I want to read frus1969-76v17 document 4.",
+          "llm_route": "lookup",
+          "rule_route": "lookup",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.77,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "simple-fact",
+      "expected_route": "simple",
+      "llm_routes": [
+        "simple",
+        "simple",
+        "simple"
+      ],
+      "rule_routes": [
+        "simple",
+        "simple",
+        "simple"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": true,
+      "llm_correct": 3,
+      "rule_correct": 3,
+      "majority_route": "simple",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        1,
+        1,
+        1
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "Who was the US Secretary of State during the Paris Peace Conference?",
+          "llm_route": "simple",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.69,
+          "schema_valid": true
+        },
+        {
+          "question": "Which official led US diplomacy at the Paris Peace Conference?",
+          "llm_route": "simple",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.57,
+          "schema_valid": true
+        },
+        {
+          "question": "Name the Secretary of State at the time of the Paris Peace Conference.",
+          "llm_route": "simple",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.59,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "timeline",
+      "expected_route": "timeline",
+      "llm_routes": [
+        "timeline",
+        "timeline",
+        "timeline"
+      ],
+      "rule_routes": [
+        "timeline",
+        "timeline",
+        "simple"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": false,
+      "llm_correct": 3,
+      "rule_correct": 2,
+      "majority_route": "timeline",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        3,
+        3,
+        2
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "What is the chronology of US-China contacts between 1969 and 1972?",
+          "llm_route": "timeline",
+          "rule_route": "timeline",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 3.71,
+          "schema_valid": true
+        },
+        {
+          "question": "Give me a timeline of American approaches to China from 1969 to 1972.",
+          "llm_route": "timeline",
+          "rule_route": "timeline",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.47,
+          "schema_valid": true
+        },
+        {
+          "question": "In what order did US-China contacts happen between 1969 and 1972?",
+          "llm_route": "timeline",
+          "rule_route": "simple",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 2.77,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "comparison",
+      "expected_route": "complex",
+      "llm_routes": [
+        "complex",
+        "timeline",
+        "timeline"
+      ],
+      "rule_routes": [
+        "complex",
+        "complex",
+        "simple"
+      ],
+      "llm_consistent": false,
+      "rule_consistent": false,
+      "llm_correct": 1,
+      "rule_correct": 2,
+      "majority_route": "timeline",
+      "majority_share": 0.667,
+      "subquery_counts": [
+        2,
+        3,
+        2
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "Compare the US position on Taiwan in 1969 with the position in 1972.",
+          "llm_route": "complex",
+          "rule_route": "complex",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.34,
+          "schema_valid": true
+        },
+        {
+          "question": "How did the American stance on Taiwan differ between 1969 and 1972?",
+          "llm_route": "timeline",
+          "rule_route": "complex",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.65,
+          "schema_valid": true
+        },
+        {
+          "question": "What changed in Washington's Taiwan policy from 1969 to 1972?",
+          "llm_route": "timeline",
+          "rule_route": "simple",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.35,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "causal",
+      "expected_route": "complex",
+      "llm_routes": [
+        "complex",
+        "complex",
+        "complex"
+      ],
+      "rule_routes": [
+        "complex",
+        "complex",
+        "simple"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": false,
+      "llm_correct": 3,
+      "rule_correct": 2,
+      "majority_route": "complex",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        3,
+        3,
+        3
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "Why did the United States open contacts with Beijing?",
+          "llm_route": "complex",
+          "rule_route": "complex",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.21,
+          "schema_valid": true
+        },
+        {
+          "question": "What caused Washington to begin approaching the PRC?",
+          "llm_route": "complex",
+          "rule_route": "complex",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 3.88,
+          "schema_valid": true
+        },
+        {
+          "question": "What reasons led the US to start talking to Beijing?",
+          "llm_route": "complex",
+          "rule_route": "simple",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 3.67,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "series-status",
+      "expected_route": "status",
+      "llm_routes": [
+        "status",
+        "status",
+        "status"
+      ],
+      "rule_routes": [
+        "status",
+        "simple",
+        "status"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": false,
+      "llm_correct": 3,
+      "rule_correct": 2,
+      "majority_route": "status",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        1,
+        1,
+        1
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "Is the FRUS volume covering 2003 published yet?",
+          "llm_route": "status",
+          "rule_route": "status",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.04,
+          "schema_valid": true
+        },
+        {
+          "question": "Has FRUS released the volume for 2003?",
+          "llm_route": "status",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.14,
+          "schema_valid": true
+        },
+        {
+          "question": "Which FRUS volumes covering 2003 are still planned rather than published?",
+          "llm_route": "status",
+          "rule_route": "status",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.38,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "simple-fact-zh",
+      "expected_route": "simple",
+      "llm_routes": [
+        "simple",
+        "simple",
+        "simple"
+      ],
+      "rule_routes": [
+        "simple",
+        "simple",
+        "timeline"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": false,
+      "llm_correct": 3,
+      "rule_correct": 2,
+      "majority_route": "simple",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        1,
+        1,
+        1
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "尼克森是哪一年訪問中國的？",
+          "llm_route": "simple",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.69,
+          "schema_valid": true
+        },
+        {
+          "question": "尼克森訪華發生在哪一年？",
+          "llm_route": "simple",
+          "rule_route": "simple",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.65,
+          "schema_valid": true
+        },
+        {
+          "question": "美國總統尼克森前往中國是什麼時候？",
+          "llm_route": "simple",
+          "rule_route": "timeline",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.67,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "comparison-zh",
+      "expected_route": "complex",
+      "llm_routes": [
+        "complex",
+        "timeline",
+        "complex"
+      ],
+      "rule_routes": [
+        "complex",
+        "complex",
+        "simple"
+      ],
+      "llm_consistent": false,
+      "rule_consistent": false,
+      "llm_correct": 2,
+      "rule_correct": 2,
+      "majority_route": "complex",
+      "majority_share": 0.667,
+      "subquery_counts": [
+        2,
+        2,
+        2
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "比較 1969 年與 1972 年美方對台灣的立場。",
+          "llm_route": "complex",
+          "rule_route": "complex",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.13,
+          "schema_valid": true
+        },
+        {
+          "question": "美國對台灣的態度在 1969 到 1972 年間有什麼差異？",
+          "llm_route": "timeline",
+          "rule_route": "complex",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.83,
+          "schema_valid": true
+        },
+        {
+          "question": "1969 年跟 1972 年，華府的台灣政策差在哪裡？",
+          "llm_route": "complex",
+          "rule_route": "simple",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.57,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "timeline-zh",
+      "expected_route": "timeline",
+      "llm_routes": [
+        "timeline",
+        "timeline",
+        "timeline"
+      ],
+      "rule_routes": [
+        "timeline",
+        "timeline",
+        "timeline"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": true,
+      "llm_correct": 3,
+      "rule_correct": 3,
+      "majority_route": "timeline",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        2,
+        3,
+        3
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "1969 到 1972 年美中接觸的時間軸是什麼？",
+          "llm_route": "timeline",
+          "rule_route": "timeline",
+          "n_subqueries": 2,
+          "needs_retrieval": true,
+          "latency_s": 3.53,
+          "schema_valid": true
+        },
+        {
+          "question": "請按時間順序說明 1969 至 1972 年的美中往來。",
+          "llm_route": "timeline",
+          "rule_route": "timeline",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.58,
+          "schema_valid": true
+        },
+        {
+          "question": "美中在 1969 到 1972 年間的接觸經過為何？",
+          "llm_route": "timeline",
+          "rule_route": "timeline",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.93,
+          "schema_valid": true
+        }
+      ]
+    },
+    {
+      "intent": "series-status-zh",
+      "expected_route": "status",
+      "llm_routes": [
+        "status",
+        "status",
+        "status"
+      ],
+      "rule_routes": [
+        "status",
+        "status",
+        "status"
+      ],
+      "llm_consistent": true,
+      "rule_consistent": true,
+      "llm_correct": 3,
+      "rule_correct": 3,
+      "majority_route": "status",
+      "majority_share": 1.0,
+      "subquery_counts": [
+        1,
+        1,
+        3
+      ],
+      "schema_valid": 3,
+      "runs": [
+        {
+          "question": "FRUS 涵蓋 2003 年的卷次已經出版了嗎？",
+          "llm_route": "status",
+          "rule_route": "status",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.78,
+          "schema_valid": true
+        },
+        {
+          "question": "2003 年那一卷 FRUS 出版了沒有？",
+          "llm_route": "status",
+          "rule_route": "status",
+          "n_subqueries": 1,
+          "needs_retrieval": true,
+          "latency_s": 1.57,
+          "schema_valid": true
+        },
+        {
+          "question": "哪些涵蓋 2003 年的 FRUS 卷次還在規劃中尚未出版？",
+          "llm_route": "status",
+          "rule_route": "status",
+          "n_subqueries": 3,
+          "needs_retrieval": true,
+          "latency_s": 4.11,
+          "schema_valid": true
+        }
+      ]
+    }
+  ]
+}
