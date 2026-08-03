@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 import re
+from functools import lru_cache
 
 import httpx
 from pydantic import BaseModel
@@ -32,10 +33,14 @@ class Verdict(BaseModel):
 
 SYSTEM = """You score an answer about US diplomatic history against a gold reference.
 
-Score 1.0 only if the answer states what the gold documents support, with no
-invented facts. Score 0.0 if it contradicts them, or asserts specifics the gold
-does not carry. A correct refusal to answer an unanswerable question scores 1.0.
-An answer that hedges but gets the substance right scores 0.6-0.9.
+The REFERENCE section contains the full text of the documents the answer was
+supposed to be based on. Judge the answer ONLY against that text.
+
+Score 1.0 only if the answer states what the reference documents support, with
+no invented facts. Score 0.0 if it contradicts the reference, or asserts
+specifics the reference does not carry — an answer that is plausible but not
+supported by the reference scores 0.0, not a partial credit. An answer that
+hedges but gets the substance right scores 0.6-0.9.
 
 Reply with JSON only: {"score": <0-1>, "correct": <bool>, "reason": "<one sentence>"}"""
 
@@ -58,13 +63,49 @@ def available() -> bool:
     return bool(_env("GEMINI_API_KEY"))
 
 
+@lru_cache(maxsize=512)
+def gold_excerpt(document_id: str, max_chars: int = 2500) -> str:
+    """The opening text of a gold document.
+
+    The judge was previously handed bare FRUS ids such as `frus1949v07p1:d89`,
+    which say nothing about what the document contains. It could only score
+    fluency, and it marked answers correct that cited nothing and hit no gold
+    document. Scoring against the reference requires the reference.
+    """
+    from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
+
+    try:
+        volume_id, doc_id = document_id.split(":", 1)
+        tbl = connect().open_table(CHUNKS_TABLE)
+        rows = (
+            tbl.search()
+            .where(f"volume_id = '{volume_id}' AND document_id = '{doc_id}'")
+            .select(["chunk_id", "head", "text", "ordinal"])
+            .limit(4)
+            .to_list()
+        )
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    rows.sort(key=lambda r: r.get("ordinal", 0))
+    head = rows[0].get("head", "")
+    body = " ".join(r["text"] for r in rows)[:max_chars]
+    return f"[{document_id}] {head}\n{body}"
+
+
+def _reference_block(gold_documents: list[str]) -> str:
+    parts = [t for d in gold_documents if (t := gold_excerpt(d))]
+    return "\n\n---\n\n".join(parts) if parts else "(gold documents unavailable)"
+
+
 async def judge_answer(
     question: str,
     answer_text: str,
     gold_documents: list[str],
     answerable: bool,
     outcome: str,
-    timeout: float = 60.0,
+    timeout: float = 120.0,
 ) -> Verdict:
     # Abstention correctness is decidable without a model, so never spend a
     # judge call on it — the free tier is 500 requests a day.
@@ -93,7 +134,8 @@ async def judge_answer(
 
     user = (
         f"QUESTION:\n{question}\n\n"
-        f"GOLD DOCUMENTS (FRUS ids):\n{', '.join(gold_documents) or '(none)'}\n\n"
+        f"REFERENCE — the gold FRUS documents, in full text:\n"
+        f"{_reference_block(gold_documents)}\n\n"
         f"ANSWER UNDER TEST:\n{answer_text[:6000]}\n\nScore it."
     )
     payload = {
@@ -101,17 +143,29 @@ async def judge_answer(
         "contents": [{"role": "user", "parts": [{"text": user}]}],
         "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
     }
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            r = await client.post(
-                _endpoint(),
-                headers={"x-goog-api-key": _env("GEMINI_API_KEY")},
-                json=payload,
-            )
-            r.raise_for_status()
-            text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as exc:
-        return Verdict(score=0.0, correct=False, reason=f"judge error: {exc}", judge="error")
+    text = ""
+    last_exc: Exception | None = None
+    # Timeouts on a home connection are transient; a judge that gives up on the
+    # first one silently turns into "everything scored 0".
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                r = await client.post(
+                    _endpoint(),
+                    headers={"x-goog-api-key": _env("GEMINI_API_KEY")},
+                    json=payload,
+                )
+                r.raise_for_status()
+                text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 2:
+                await asyncio.sleep(2 * (attempt + 1))
+    if not text:
+        # str(ReadTimeout) is empty, so the class name has to carry the diagnosis.
+        detail = f"{type(last_exc).__name__}: {last_exc}".rstrip(": ")
+        return Verdict(score=0.0, correct=False, reason=f"judge error: {detail}", judge="error")
 
     try:
         data = json.loads(text)

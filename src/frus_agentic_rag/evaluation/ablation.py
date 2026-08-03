@@ -22,13 +22,34 @@ from frus_agentic_rag.evaluation.gold import load_cases
 SYSTEM_ROUTES = {"lookup", "simple", "timeline", "complex", "status"}
 
 
-def _docs_of(answer) -> set[str]:
-    return {f"{e.volume_id}:{e.document_id}" for e in answer.evidence}
+# The evidence pipeline has three lossy stages. A single recall number cannot
+# say which one dropped a gold document, so each stage is measured separately:
+#
+#   candidate_recall      the retriever alone, one search, @candidate_k
+#   agent_union_recall    every document the agent saw across all its rounds
+#   accepted_recall       what the grader kept
+#   citation_recall       what survived the citation gate
+#
+# candidate -> union isolates the value of multi-round planning; union ->
+# accepted isolates the grader; accepted -> citation isolates the gate.
 
 
-def _retrieved_docs(answer) -> set[str]:
-    """Every document the run saw, not just the ones it ended up citing."""
-    return {f"{e.volume_id}:{e.document_id}" for e in answer.evidence}
+def _recall(gold: set[str], got: set[str]) -> float | None:
+    return len(gold & got) / len(gold) if gold else None
+
+
+def _precision(gold: set[str], got: set[str]) -> float | None:
+    return len(gold & got) / len(got) if got and gold else None
+
+
+async def candidate_recall(question: str, gold: set[str], limit: int) -> dict:
+    """The retriever on its own, independent of any system under test."""
+    from frus_agentic_rag.models import SearchFilters
+    from frus_agentic_rag.retrieval.hybrid import hybrid_search
+
+    hits = await hybrid_search(question, SearchFilters(subtypes=["historical-document"]), limit)
+    docs = {f"{h.volume_id}:{h.document_id}" for h in hits}
+    return {"recall": _recall(gold, docs), "n_documents": len(docs), "n_chunks": len(hits)}
 
 
 async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> dict:
@@ -57,14 +78,9 @@ async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> 
             "latency_s": round(time.perf_counter() - t0, 2),
         }
 
-    retrieved = _retrieved_docs(result)
-    hit = gold & retrieved
-    all_evidence_recall = len(hit) / len(gold) if gold else None
-
-    cited_docs = (
-        {f"{e.volume_id}:{e.document_id}" for e in result.evidence} if result.citations else set()
-    )
-    citation_precision = len(cited_docs & gold) / len(cited_docs) if cited_docs and gold else None
+    union = set(result.retrieved_document_ids)
+    accepted = set(result.accepted_document_ids)
+    cited = set(result.cited_document_ids)
     claims = result.claims
     claim_coverage = sum(1 for c in claims if c.evidence_ids) / len(claims) if claims else None
 
@@ -93,10 +109,17 @@ async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> 
         "outcome": result.outcome,
         "answerable": case["answerable"],
         "n_gold": len(gold),
-        "n_retrieved_docs": len(retrieved),
-        "n_gold_hit": len(hit),
-        "all_evidence_recall": all_evidence_recall,
-        "citation_precision": citation_precision,
+        # --- the three lossy stages, measured separately ---
+        "agent_union_recall": _recall(gold, union),
+        "accepted_recall": _recall(gold, accepted),
+        "citation_recall": _recall(gold, cited),
+        "citation_precision": _precision(gold, cited),
+        "n_union_docs": len(union),
+        "n_accepted_docs": len(accepted),
+        "n_cited_docs": len(cited),
+        "n_gold_hit_union": len(gold & union),
+        "grader_drop": len(gold & union) - len(gold & accepted),
+        "citation_drop": len(gold & accepted) - len(gold & cited),
         "claim_citation_coverage": claim_coverage,
         "n_citations": len(result.citations),
         "llm_calls": result.llm_calls,
@@ -145,22 +168,54 @@ def summarise(rows: list[dict]) -> dict:
     ok = [r for r in rows if r["outcome"] != "error"]
     answerable = [r for r in ok if r["answerable"]]
     unanswerable = [r for r in ok if not r["answerable"]]
-    multihop = [r for r in ok if r["kind"] == "multihop"]
-    correction = [r for r in ok if r["kind"] == "correction"]
 
     abstained = [r for r in ok if r["outcome"] == "abstain"]
     correct_abstentions = [r for r in abstained if not r["answerable"]]
 
+    def by_kind(kind: str) -> list[dict]:
+        return [r for r in ok if r["kind"] == kind]
+
+    # Capability breakdown is pre-declared, not chosen after seeing results:
+    # correction cases are reported on their own rather than dropped from the
+    # aggregate, which would be discarding a question type for failing.
+    kinds = {
+        k: {
+            "n": len(by_kind(k)),
+            "candidate_recall": _mean([r.get("candidate_recall") for r in by_kind(k)]),
+            "agent_union_recall": _mean([r["agent_union_recall"] for r in by_kind(k)]),
+            "accepted_recall": _mean([r["accepted_recall"] for r in by_kind(k)]),
+            "citation_recall": _mean([r["citation_recall"] for r in by_kind(k)]),
+        }
+        for k in ("lookup", "multihop", "correction")
+    }
+
     return {
         "n_runs": len(rows),
         "n_errors": len(rows) - len(ok),
-        "all_evidence_recall@10": _mean([r["all_evidence_recall"] for r in answerable]),
-        "all_evidence_recall@10_multihop": _mean([r["all_evidence_recall"] for r in multihop]),
+        # --- stage-by-stage recall over answerable cases (macro) ---
+        "candidate_recall": _mean([r.get("candidate_recall") for r in answerable]),
+        "agent_union_recall": _mean([r["agent_union_recall"] for r in answerable]),
+        "accepted_recall": _mean([r["accepted_recall"] for r in answerable]),
+        "citation_recall": _mean([r["citation_recall"] for r in answerable]),
+        "planning_gain": _delta(
+            _mean([r["agent_union_recall"] for r in answerable]),
+            _mean([r.get("candidate_recall") for r in answerable]),
+        ),
+        "grader_loss": _delta(
+            _mean([r["accepted_recall"] for r in answerable]),
+            _mean([r["agent_union_recall"] for r in answerable]),
+        ),
+        "citation_loss": _delta(
+            _mean([r["citation_recall"] for r in answerable]),
+            _mean([r["accepted_recall"] for r in answerable]),
+        ),
+        "by_kind": kinds,
+        "correction_success_rate": _mean(
+            [1.0 if (r["agent_union_recall"] or 0) > 0 else 0.0 for r in by_kind("correction")]
+        ),
+        # --- everything downstream of retrieval ---
         "answer_correctness": _mean(
             [1.0 if r["judge_correct"] else 0.0 for r in ok if r["judge_correct"] is not None]
-        ),
-        "answer_correctness_multihop": _mean(
-            [1.0 if r["judge_correct"] else 0.0 for r in multihop if r["judge_correct"] is not None]
         ),
         "judge_score_mean": _mean([r["judge_score"] for r in ok]),
         "route_macro_f1": _macro_f1(ok),
@@ -176,7 +231,6 @@ def summarise(rows: list[dict]) -> dict:
             2,
         ),
         "correction_rate": round(sum(1 for r in ok if r["correction_used"]) / max(1, len(ok)), 4),
-        "correction_gain_recall": _mean([r["all_evidence_recall"] for r in correction]),
         "abstention_precision": round(len(correct_abstentions) / len(abstained), 4)
         if abstained
         else None,
@@ -186,10 +240,49 @@ def summarise(rows: list[dict]) -> dict:
         "false_answer_on_unanswerable": sum(1 for r in unanswerable if r["outcome"] == "answer"),
         "citation_precision": _mean([r["citation_precision"] for r in answerable]),
         "claim_citation_coverage": _mean([r["claim_citation_coverage"] for r in ok]),
-        "llm_calls_mean": _mean([r["llm_calls"] for r in ok]),
+        # Retrieval budget. B1 issuing more searches than B0 is a confound in any
+        # recall comparison between them, so it is reported alongside, not buried.
         "retrieval_calls_mean": _mean([r["retrieval_calls"] for r in ok]),
+        "llm_calls_mean": _mean([r["llm_calls"] for r in ok]),
         "latency_p50": _pct([r["latency_s"] for r in ok], 0.50),
         "latency_p95": _pct([r["latency_s"] for r in ok], 0.95),
+    }
+
+
+def _delta(a: float | None, b: float | None) -> float | None:
+    """Percentage-point change between two stages."""
+    return round((a - b) * 100, 2) if a is not None and b is not None else None
+
+
+def paired_by_case(rows_a: list[dict], rows_b: list[dict]) -> dict:
+    """Paired comparison over semantic cases.
+
+    The zh and en wordings of one case are two observations of the same
+    question, not two independent samples; pairing on case_id keeps that
+    structure instead of inflating n by treating them as independent.
+    """
+
+    def index(rows: list[dict]) -> dict[tuple[str, str], dict]:
+        return {(r["case_id"], r["language"]): r for r in rows if r["outcome"] != "error"}
+
+    a, b = index(rows_a), index(rows_b)
+    shared = sorted(set(a) & set(b))
+    diffs = [
+        (a[k]["agent_union_recall"] - b[k]["agent_union_recall"])
+        for k in shared
+        if a[k]["agent_union_recall"] is not None and b[k]["agent_union_recall"] is not None
+    ]
+    if not diffs:
+        return {"n_pairs": 0}
+    wins = sum(1 for d in diffs if d > 0)
+    losses = sum(1 for d in diffs if d < 0)
+    return {
+        "n_pairs": len(diffs),
+        "mean_difference_pp": round(statistics.fmean(diffs) * 100, 2),
+        "wins": wins,
+        "losses": losses,
+        "ties": len(diffs) - wins - losses,
+        "stdev_pp": round(statistics.stdev(diffs) * 100, 2) if len(diffs) > 1 else None,
     }
 
 
@@ -274,6 +367,19 @@ async def run_ablation(
             flush=True,
         )
 
+    # The retriever floor depends on the question, not on the system under test,
+    # so it is measured once per (case, language) and attached to every row.
+    # Without it, "the agent found 0.35" has no denominator.
+    floors: dict[tuple[str, str], float | None] = {}
+    for language in languages:
+        for case in cases:
+            q = case["question_zh"] if language == "zh-TW" else case["question_en"]
+            gold = set(case.get("gold_documents", []))
+            floors[(case["case_id"], language)] = (
+                (await candidate_recall(q, gold, settings.candidate_k))["recall"] if gold else None
+            )
+    print(f"candidate recall measured for {len(floors)} (case, language) pairs", flush=True)
+
     rows: list[dict] = []
     per_system: dict[str, dict] = {}
     total = len(systems) * len(languages) * len(cases)
@@ -286,11 +392,15 @@ async def run_ablation(
                 n += 1
                 key = (system, language, case["case_id"])
                 if key in completed:
+                    completed[key].setdefault(
+                        "candidate_recall", floors.get((case["case_id"], language))
+                    )
                     sys_rows.append(completed[key])
                     rows.append(completed[key])
                     continue
                 r = await _run_case(case, system, language, use_judge)
                 r["retriever"] = fingerprint
+                r["candidate_recall"] = floors.get((case["case_id"], language))
                 sys_rows.append(r)
                 rows.append(r)
                 with runs_path.open("a", encoding="utf-8") as fh:
@@ -347,9 +457,22 @@ def _gates(b0: dict, b3: dict) -> dict:
         a, b = b0.get(key), b3.get(key)
         return round((b - a) * 100, 2) if a is not None and b is not None else None
 
-    recall_gain = gain("all_evidence_recall@10_multihop")
-    correctness_gain = gain("answer_correctness_multihop")
+    def kind_gain(kind: str, key: str) -> float | None:
+        a = (b0.get("by_kind") or {}).get(kind, {}).get(key)
+        b = (b3.get("by_kind") or {}).get(kind, {}).get(key)
+        return round((b - a) * 100, 2) if a is not None and b is not None else None
+
+    recall_gain = kind_gain("multihop", "agent_union_recall")
+    correctness_gain = gain("answer_correctness")
     p95_b0, p95_b3 = b0.get("latency_p95"), b3.get("latency_p95")
+
+    # Retrieval budget is not equal across systems, so a recall gain is not
+    # attributable to planning until the budget is matched. Reported next to
+    # the gate rather than folded into it.
+    budget_b0, budget_b3 = b0.get("retrieval_calls_mean"), b3.get("retrieval_calls_mean")
+    budget_confound = (
+        budget_b3 is not None and budget_b0 is not None and budget_b3 > budget_b0 * 1.2
+    )
 
     passed_quality = any(g is not None and g >= 10.0 for g in (recall_gain, correctness_gain))
     return {
@@ -358,6 +481,15 @@ def _gates(b0: dict, b3: dict) -> dict:
             "correctness": correctness_gain,
             "threshold_pp": 10.0,
             "pass": passed_quality,
+            "retrieval_calls_b0": budget_b0,
+            "retrieval_calls_b3": budget_b3,
+            "budget_confounded": budget_confound,
+            "attribution_note": (
+                "B3 issues more retrievals than B0; a recall gain cannot be "
+                "attributed to planning until the budget is matched"
+                if budget_confound
+                else "retrieval budgets are comparable"
+            ),
             "consequence": (
                 "README may claim an agentic improvement"
                 if passed_quality

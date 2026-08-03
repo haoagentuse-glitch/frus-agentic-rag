@@ -121,6 +121,20 @@ class Answer(BaseModel):
     claims: list[Claim] = Field(default_factory=list)
     citations: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
+
+    # The evidence pipeline, one field per stage. Without these, a single recall
+    # number cannot say whether a miss came from the retriever, the grader or
+    # the citation gate — `evidence` above is already filtered and truncated.
+    retrieved_document_ids: list[str] = Field(
+        default_factory=list, description="union over every retrieval round, untruncated"
+    )
+    accepted_document_ids: list[str] = Field(
+        default_factory=list, description="what the grader accepted"
+    )
+    cited_document_ids: list[str] = Field(
+        default_factory=list, description="what survived the citation gate"
+    )
+
     limitations: str = ""
     abstain_reason: str = ""
     system: str = "B0"

@@ -16,6 +16,11 @@ from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.models import Answer, Claim, Evidence
 
 
+def _doc_ids(evidence) -> list[str]:
+    """Chunk-level evidence collapsed to the citable unit, in stable order."""
+    return sorted({f"{e.volume_id}:{e.document_id}" for e in evidence})
+
+
 async def answer(
     question: str,
     language: str | None = None,
@@ -53,14 +58,21 @@ async def answer(
     accepted = set(final.get("accepted_evidence_ids") or [e.evidence_id for e in evidence])
     outcome = final.get("outcome") or ("answer" if final.get("draft_answer") else "abstain")
 
+    claims = [Claim(**c) for c in final.get("claims", [])]
+    by_id = {e.evidence_id: e for e in evidence}
+    cited_ids = {i for c in claims for i in c.evidence_ids} if final.get("citations") else set()
+
     return Answer(
         question=question,
         language=language,
         outcome=outcome,  # type: ignore[arg-type]
         answer_text=final.get("draft_answer") or "",
-        claims=[Claim(**c) for c in final.get("claims", [])],
+        claims=claims,
         citations=final.get("citations", []),
         evidence=[e for e in evidence if e.evidence_id in accepted][: get_settings().top_k],
+        retrieved_document_ids=_doc_ids(evidence),
+        accepted_document_ids=_doc_ids(e for e in evidence if e.evidence_id in accepted),
+        cited_document_ids=_doc_ids(by_id[i] for i in cited_ids if i in by_id),
         limitations=final.get("limitations", ""),
         abstain_reason=final.get("abstain_reason", ""),
         system=system,
@@ -123,7 +135,7 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
 
     claims = [Claim(text=c.text, evidence_ids=c.evidence_ids) for c in draft.claims]
     text = cite.strip_urls(draft.answer_text)
-    errors, _cited, lines = cite.validate(claims, text, evidence)
+    errors, cited, lines = cite.validate(claims, text, evidence)
 
     return Answer(
         question=question,
@@ -133,6 +145,10 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
         claims=claims,
         citations=lines,
         evidence=evidence,
+        retrieved_document_ids=_doc_ids(evidence),
+        # No grader in the 2-step pipeline: everything retrieved is accepted.
+        accepted_document_ids=_doc_ids(evidence),
+        cited_document_ids=_doc_ids(cited) if not errors else [],
         limitations=draft.limitations,
         abstain_reason="; ".join(errors[:3]),
         system="B0-2step",
