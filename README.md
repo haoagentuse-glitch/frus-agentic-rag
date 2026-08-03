@@ -1,18 +1,18 @@
 # frus-agentic-rag
 
-在全部已出版的《美國外交關係文件集》（Foreign Relations of the United States, FRUS）上做有界限的 agentic 檢索問答。
+於全部已出版的《美國外交關係文件集》（Foreign Relations of the United States, FRUS）上實作有界限的 agentic 檢索問答。
 
-一般 RAG 的失敗方式是回答得很流暢但無法驗證。本專案的設計前提相反：**答案要嘛引用得出真實存在的 FRUS 文件，要嘛拒答**。引用驗證是確定性程式碼，不經模型；模型憑空產生的 evidence id、沒被檢索到的 id、指向編者按語而非原始文件的 id，一律視為阻斷性失敗。
+系統的輸出限定為兩種：引用實際存在的 FRUS 文件作答，或拒答。引用驗證由確定性程式碼執行，不經模型判斷。模型產生但未被檢索到的 evidence id、格式不合的 id、以及指向編者按語而非原始文件的 id，均視為阻斷性失敗並轉為拒答。
 
 語料為 pinned snapshot `4b4c402f`，共 **552 個已出版卷次、306,016 份歷史文件、723,557 個 chunk**。
 
-全部在單機 RTX 4060 Laptop 8GB 上執行，不呼叫任何外部生成服務。
+全部流程於單機 RTX 4060 Laptop 8GB 上執行，不呼叫外部生成服務。
 
 ---
 
 ## 主要結果
 
-語料建置與圖的終止性已完成實測。
+語料建置與圖的終止性已完成量測。
 
 | 項目 | 數值 |
 |---|---:|
@@ -27,7 +27,7 @@
 
 BGE-M3 全量向量化實測 **32.4 chunks/s**（fp16、batch 16），峰值視訊記憶體 1.26 GiB，全庫 6.2 小時完成。
 
-路由在改寫下的穩定性，10 個語意意圖各 3 種說法，共 30 次：
+路由在改寫下的穩定性。10 個語意意圖，各 3 種說法，共 30 次執行：
 
 | 指標 | LLM router | 規則式 router |
 |---|---:|---:|
@@ -35,9 +35,9 @@ BGE-M3 全量向量化實測 **32.4 chunks/s**（fp16、batch 16），峰值視�
 | 路由準確率 | **0.90** | 0.80 |
 | 結構化輸出有效率 | **1.00** | — |
 
-預登記門檻要求一致性 ≥ 0.80，未達則退回規則式 router。實測剛好 0.80 通過，而**退路本身在這個語料上更差**，所以 LLM router 是憑證據留下的。planner 中位延遲 3.2 秒。
+預登記門檻為一致性 ≥ 0.80，未達則退回規則式 router。實測值為 0.80，達到門檻；規則式 router 在同一組測試上的一致性為 0.40、準確率 0.80，兩項均低於 LLM router。planner 中位延遲 3.2 秒。
 
-**尚未有數字的部分：agentic 相對 2-step baseline 的品質增益。** B0–B3 的雙語 ablation 仍在執行，在 `reports/agent_ablation.json` 產出之前，本文件不宣稱 agentic 有提升。
+agentic 相對 2-step baseline 的品質增益尚未量測。B0–B3 的雙語 ablation 執行中；在 `reports/agent_ablation.json` 產出之前，本文件不就此提出任何主張。
 
 ---
 
@@ -58,7 +58,7 @@ flowchart LR
     F --> I["IVF_PQ<br/>723,557 向量"]
 ```
 
-不跨文件切塊。文件是可引用的最小單位，橫跨兩份文件的 chunk 無法歸屬。BM25 在任何向量存在之前就先建好，因此半途中斷的向量化仍留下可用的檢索器；`dense_search` 以 `embedded = true` 過濾，未向量化的 chunk 不會混入排序成為雜訊。
+切塊不跨文件邊界：文件為可引用的最小單位，橫跨兩份文件的 chunk 無法歸屬引用。BM25 索引先於向量建立，因此未完成的向量化仍保留可用的檢索器；`dense_search` 以 `embedded = true` 過濾，尚未向量化的 chunk 不進入排序。
 
 ### Agent 圖
 
@@ -78,7 +78,7 @@ flowchart TD
     X --> Z(["拒答"])
 ```
 
-上限寫在邊上，不靠 recursion limit 兜底：**最多 3 個 subquery、2 輪檢索、1 次修正、4 次 LLM 呼叫**。這四個數字由 `frus graph-smoke` 在假工具上驗證，五條路徑全部在預算內終止。
+預算上限實作於條件邊，而非依賴 recursion limit：最多 3 個 subquery、2 輪檢索、1 次修正、4 次 LLM 呼叫。`frus graph-smoke` 以可注入的假工具驗證五條路徑，全部在上限內終止。
 
 | 層 | 工具 | 用途 |
 |---|---|---|
@@ -89,19 +89,19 @@ flowchart TD
 | 追蹤 | Arize Phoenix、OpenInference | 手寫 span，非 auto-instrumentor |
 | 環境 | Docker、uv、ruff、mypy | 依賴以 `uv.lock` 鎖定 |
 
-只開放五個具 schema 的本機工具：`hybrid_search`、`lookup_document`、`timeline_search`、`get_adjacent_context`、`get_series_status`。模型不產生 SQL、檔案路徑或任何 URL —— canonical URL 一律由程式組合。
+對模型開放的工具限於五個具 schema 的本機函式：`hybrid_search`、`lookup_document`、`timeline_search`、`get_adjacent_context`、`get_series_status`。模型不產生 SQL、檔案路徑或 URL；canonical URL 由程式組合。
 
 ---
 
 ## 為何兩條檢索臂都保留
 
-dense 索引建好後，hybrid 檢索在 gold set 上**低於單獨 BM25**：0.186 對 0.209。查下來有兩件事。
+dense 索引建立後，hybrid 檢索在 gold set 上的 recall@10 為 0.186，低於單獨使用 BM25 的 0.209。診斷結果如下。
 
-IVF_PQ 的預設在 72 萬向量上掃描的分區太少。調到 `nprobes=400, refine_factor=20` 後 dense recall@10 由 0.070 升到 0.116，光這一項就讓融合回到與詞彙臂持平。RRF 改為加權，避免弱臂把強臂的命中擠出前 10。
+IVF_PQ 的預設參數在 72 萬向量上掃描的分區數過少。調整為 `nprobes=400, refine_factor=20` 後，dense recall@10 由 0.070 上升至 0.116，此項調整即使融合結果回到與詞彙臂相同的水準。RRF 另改為加權形式，以避免召回較低的一臂排擠另一臂位於第 5 至 10 名的命中。
 
-**權重沒有調參。** 從 0.0 掃到 1.0，gold set 分數最多只差 1 份文件（共 43 份），那是雜訊；挑其中最高的來宣稱有增益是在擬合雜訊。
+權重未經調參。在 0.0 至 1.0 區間掃描，gold set 分數的最大差異為 1 份文件（共 43 份），落在雜訊範圍內，故不以其中最高值作為結果報告。
 
-dense 之所以保留，靠的是 gold set 產不出的證據。純中文、不含任何英文錨點的問句：
+保留向量檢索的依據來自 gold set 未涵蓋的測試。以下為不含任何英文錨點的中文查詢：
 
 | 查詢（zh-TW，無英文錨點） | BM25 | Dense 首位命中 |
 |---|---:|---|
@@ -111,11 +111,11 @@ dense 之所以保留，靠的是 gold set 產不出的證據。純中文、不�
 | 第二次世界大戰後對日本的佔領政策 | **0 筆** | Report by the State-War-Navy Coordinating Subcommittee for the Far East |
 | 美蘇限制戰略武器談判 | **0 筆** | Telegram From the Delegation to the SALT |
 
-BM25 在英文語料上遇到中文查詢，每一次都回 0 筆。這就是整個雙語能力的來源。
+BM25 於英文語料上對中文查詢的召回為 0，五題皆然。向量檢索為此系統雙語能力的唯一來源。
 
-**而 gold set 看不到這件事** —— 機器產生的每一題都嵌了英文標題與專有名詞，因此那組題目量的是詞彙檢索，結構性地低估 dense。三個回歸測試把這個能力釘住，否則它可能在所有詞彙指標都是綠燈的情況下悄悄消失。
+現有 gold set 無法觀測此性質：機器產生的每一題均嵌入英文標題與專有名詞，所測量者為詞彙檢索，對向量檢索構成結構性低估。三個回歸測試針對此能力設立，以避免其在詞彙指標維持正常的情況下失效。
 
-誠實的結論是：**這個語料對英文問題偏好詞彙檢索，對中文問題則必須靠向量檢索，而 gold set 只看得到前半段。**
+綜合而言，此語料在英文查詢下由詞彙檢索主導，在中文查詢下則完全依賴向量檢索；現有 gold set 僅能觀測前者。
 
 ---
 
@@ -125,7 +125,7 @@ BM25 在英文語料上遇到中文查詢，每一次都回 0 筆。這就是整
 
 planner 的 prompt 要求 subquery 一律寫成英文，所以 B1/B2/B3 收到中文問題時會先轉成英文再檢索。**B0 與 B0-2step 沒有這一步**，直接把中文丟進檢索器。兩邊在中文題上因此不是在比同一件事。
 
-原本的假設是這會讓 agentic 系統佔便宜。實測相反：
+此差異的方向以下列實測確認：
 
 | 查詢方式 | recall@10 |
 |---|---:|
@@ -133,37 +133,37 @@ planner 的 prompt 要求 subquery 一律寫成英文，所以 B1/B2/B3 收到�
 | planner 翻譯後（B1–B3 路徑） | 0.256 |
 | 人工英文題 | 0.209 |
 
-翻譯在這組題目上是扣分的，而且人工英文題分數最低。原因同樣是 gold set 的建構方式：中文題把英文專有名詞原樣嵌著，本身就是一個乾淨的 BM25 查詢，而英文題是完整句子（`What does the FRUS document titled 'X', dated Y, say?`），大量虛詞稀釋了詞彙訊號。
+翻譯步驟在此題組上使 recall 下降，人工英文題的分數最低。成因為 gold set 的建構方式：中文題以原形嵌入英文專有名詞，構成詞彙訊號密度較高的查詢；英文題為完整句子（`What does the FRUS document titled 'X', dated Y, say?`），其中的功能詞稀釋了詞彙訊號。
 
-結論有二。其一，這個偏差**對 baseline 有利**，所以中文題上若量到 B3 優於 B0，那是被低估過的下界，不是被翻譯灌水的結果。其二，這再次顯示 gold set 量的是錨點詞比對而非語言處理能力。ablation 報告因此**分語言呈現**，不把中英文平均成單一數字。
+此偏差的方向對 baseline 有利，因此中文題上若觀測到 B3 優於 B0，該差值為下界。此結果亦顯示 gold set 所測量者為錨點詞比對而非語言處理能力。ablation 報告分語言呈現，不將中英文合併為單一數值。
 
 ### gold cases 是機器草擬的
 
-`eval/gold_cases.jsonl` 每筆都帶 `review_status: "unreviewed"`、`authored_by: "claude-generated"`，報告也重複這個 caveat。題目取自被索引的同一批語料，本質上是自我循環：它量的是 pipeline 能不能重新找回自己看過的文字，不是史學正確性。人工覆核這 30 題是目前投報率最高的一件事。
+`eval/gold_cases.jsonl` 每筆均標註 `review_status: "unreviewed"` 與 `authored_by: "claude-generated"`，報告中重複載明。題目取自被索引的同一批語料，構成自我參照的評估：所測量的是 pipeline 能否重新檢索出自身已索引的文字，而非史學正確性。經史學專業人員覆核可移除此限制。
 
-建構過程本身修過三個缺陷，每個都是實跑檢索才發現的：
+建構過程修正過三項缺陷，均於實際執行檢索後才顯現：
 
 | 缺陷 | 證據 | 修法 |
 |---|---|---|
-| 只給標題的 lookup 題無法指向單一文件 | `The Secretary of State to the Consulate General at Batavia` 共用於 216 個 chunk | 要求標題全語料罕見，並把日期寫入題目 |
-| multi-hop 的 gold 是卷內隨機抽樣 | recall 實測 **0/30**，因為那些文件與問題無關聯 | 改以「該卷中剛好出現在 2–4 份文件的專有名詞」為錨點 |
-| 錨點詞混入句首大寫的普通字 | `Section`、`Draft`、`Presently`、`Suppose` 撈不到東西；真專有名詞（`Daland`、`Istrian`）全中 | 只從句中位置取大寫詞 |
+| 僅給標題的 lookup 題無法指向單一文件 | `The Secretary of State to the Consulate General at Batavia` 共用於 216 個 chunk | 限定標題於全語料罕見，並將日期寫入題目 |
+| multi-hop 的 gold 為卷內隨機抽樣 | recall 實測 0/30；抽樣文件與問題間無對應關係 | 改以該卷中出現於 2–4 份文件的專有名詞為錨點 |
+| 錨點詞混入句首大寫的一般詞 | `Section`、`Draft`、`Presently`、`Suppose` 召回為 0；專有名詞（`Daland`、`Istrian`）則全數命中 | 僅自句中位置取大寫詞 |
 
 ### 答案正確性由外部模型評分
 
-其餘所有指標皆為確定性、可離線重現。answer correctness 需要模型，單獨列出並標明評分者（Gemini），無金鑰時記為 `judge: "unavailable"` 而非捏造分數。評分者只看已產生的答案，不提供任何證據，封閉語料原則不受影響。
+其餘指標均為確定性且可離線重現。answer correctness 需經模型評分，故單獨列出並標明評分者（Gemini）；無金鑰時記為 `judge: "unavailable"`，不填補估計值。評分者僅讀取已產生的答案，不提供證據，封閉語料的界線不受影響。
 
 ---
 
 ## Ollama 的 JSON schema 約束
 
-所有交給模型的 schema，**list 一律加 `maxItems`，字串一律不加長度上限**。這不是整潔問題。
+所有交給模型的 schema 中，list 一律標註 `maxItems`，字串則不設長度上限。此約定的依據如下。
 
-沒有 `maxItems` 時，grammar-constrained decoder 在單次 grade 呼叫上生成了 **14,000 個 token** 直到讀取逾時。加上界限後同一呼叫從 300 秒（逾時）降到 **2.6 秒**。
+未標註 `maxItems` 時，grammar-constrained decoder 在單次 grade 呼叫上生成 14,000 個 token 直至讀取逾時。加入界限後，同一呼叫的耗時由 300 秒（逾時）降至 2.6 秒。
 
-反過來，`maxLength`、`minLength`、`minItems` 會讓 Ollama 直接回 400 `failed to parse grammar` —— 對 live server 逐項 bisect 確認過。字串長度改由 `num_predict` 兜底。
+反之，`maxLength`、`minLength`、`minItems` 會使 Ollama 回傳 400 `failed to parse grammar`；此結果以對執行中的 server 逐項 bisect 確認。字串長度改由 `num_predict` 限制。
 
-grader 原本有一個自由填寫的 `missing` 欄位，模型會在裡面寫整段推理而撞破上限；該欄位已移除，`corrective_query` 承載同樣的資訊而且是檢索器可直接使用的形式。
+grader 原設有自由填寫的 `missing` 欄位，模型於其中輸出整段推理而觸及上限。該欄位已移除，其資訊由 `corrective_query` 承載，且為檢索器可直接使用的形式。
 
 ---
 
@@ -179,7 +179,7 @@ docker compose build
 docker compose up -d ollama && docker compose exec ollama ollama pull qwen3:4b-instruct
 ```
 
-`scripts/dev.sh` 以 host venv 執行同一份程式碼，省去重建 image 的往返；`docker compose run --rm dev` 則在 image 內執行。
+`scripts/dev.sh` 以 host venv 執行同一份程式碼，免去重建 image；`docker compose run --rm dev` 則於 image 內執行。
 
 ```bash
 ./scripts/dev.sh frus manifest
@@ -191,7 +191,7 @@ docker compose up -d ollama && docker compose exec ollama ollama pull qwen3:4b-i
 
 ### 建立向量索引
 
-先停 Ollama。8 GB 視訊記憶體同時放兩者並不寬裕，且上面的吞吐量假設 GPU 空閒。
+執行前先停止 Ollama。8 GB 視訊記憶體同時容納兩者的餘裕有限，且上述吞吐量的量測前提為 GPU 閒置。
 
 ```bash
 docker compose stop ollama && FRUS_GPU=1 FRUS_EMBED_DEVICE=cuda ./scripts/dev.sh frus embed --all --resume
@@ -201,7 +201,7 @@ docker compose stop ollama && FRUS_GPU=1 FRUS_EMBED_DEVICE=cuda ./scripts/dev.sh
 docker compose up -d ollama && ./scripts/dev.sh frus index --ann
 ```
 
-每卷 checkpoint 於 `data/index/embed_state.json`。中斷後重下同一行指令從下一個未完成的卷次接續，不會從頭開始。遇到 CUDA OOM 時 batch 自動減半（16 → 8 → 4）並記住縮小後的值。
+逐卷 checkpoint 寫入 `data/index/embed_state.json`。中斷後重新執行同一指令會由下一個未完成的卷次接續。遇 CUDA OOM 時 batch 自動減半（16 → 8 → 4），並沿用縮小後的值。
 
 ### 提問與評估
 
@@ -217,7 +217,7 @@ docker compose up -d ollama && ./scripts/dev.sh frus index --ann
 ./scripts/dev.sh frus route-stability
 ```
 
-ablation 逐筆 checkpoint 到 `reports/ablation_runs.jsonl`，可 `--resume`。每筆記錄當時的檢索器模式，resume 時模式不符的會被丟棄重跑，避免把 BM25-only 與 hybrid 的結果平均進同一張表。
+ablation 逐筆 checkpoint 至 `reports/ablation_runs.jsonl`，支援 `--resume`。每筆記錄執行當時的檢索器模式；resume 時模式不符者予以丟棄並重跑，以避免 BM25-only 與 hybrid 的結果被合併計算。
 
 ### 服務與追蹤
 
@@ -233,7 +233,7 @@ docker compose -f Phoenix/compose.yaml up -d
 
 Phoenix <http://localhost:6006>。client 設定放在 repo 根目錄的 `.env`（`PHOENIX_COLLECTOR_ENDPOINT`、`PHOENIX_PROJECT`），`Phoenix/.env` 只設定 server。不設 endpoint 則追蹤退化為 no-op。
 
-因為 LLM 呼叫是裸 httpx 打 Ollama 而非 LangChain chat model，任何 auto-instrumentor 都看不到它們；span 依 OpenInference 語意慣例手寫，Phoenix 才能呈現帶 prompt、token 數與 schema 有效性的 LLM span，以及帶檢索結果的 RETRIEVER span。
+LLM 呼叫以 httpx 直接送往 Ollama，而非經由 LangChain chat model，因此不在任何 auto-instrumentor 的涵蓋範圍內。span 依 OpenInference 語意慣例手寫，使 Phoenix 得以呈現含 prompt、token 數與 schema 有效性的 LLM span，以及含檢索結果的 RETRIEVER span。
 
 ### 開發
 
@@ -249,7 +249,7 @@ docker compose run --rm dev uv run frus graph-smoke
 
 ## 專案結構
 
-四個套件，各對應 pipeline 的一個階段。`models.py` 置於頂層，因為每個階段都共用那些型別。
+四個套件，各對應 pipeline 的一個階段。`models.py` 置於頂層，其型別為各階段共用。
 
 ```text
 src/frus_agentic_rag/
@@ -291,30 +291,30 @@ eval/             gold_cases.jsonl
 reports/          corpus_stats、benchmark、graph_smoke、route_stability、agent_ablation
 ```
 
-`Phoenix/` 刻意保留為目錄：`docker compose -f Phoenix/compose.yaml` 會把它當專案目錄並讀取 `Phoenix/.env` 做變數替換。
+`Phoenix/` 保留為目錄：`docker compose -f Phoenix/compose.yaml` 以其為專案目錄，並讀取 `Phoenix/.env` 進行變數替換。
 
 ---
 
 ## 基底映像
 
-`Dockerfile` 由 `jobshift:latest` 起造，該映像已帶 Python 3.12、uv、Torch 與 Sentence Transformers。**這是一天內完成建置的 layer 重用，不是依賴關係。** FRUS 不使用 Jobshift 的任何程式碼或資料，BGE-M3 快取為唯讀掛載，換成任何帶 CUDA Torch 的 Python 3.12 映像只需改一行。
+`Dockerfile` 以 `jobshift:latest` 為基底，該映像已含 Python 3.12、uv、Torch 與 Sentence Transformers。此為 layer 重用而非依賴關係：本專案不使用該映像的程式碼或資料，BGE-M3 快取為唯讀掛載，替換為任何含 CUDA Torch 的 Python 3.12 映像僅需修改一行。
 
-`/app` 在複製本專案之前會清空 —— 基底映像自帶的原始碼若留著，會成為本專案工作目錄的一部分，`ruff format --check .` 曾因此檢查了 11 個 Jobshift 的檔案並回報樹是髒的。
+`/app` 於複製本專案前清空。基底映像自帶的原始碼若保留，將成為本專案工作目錄的一部分；`ruff format --check .` 曾因此檢查 11 個非本專案檔案並回報未格式化。
 
-Torch 解析為 PyPI 的 `2.13.0+cu130` 而非指令書指定的 cu124 index：torch 是 sentence-transformers 的**傳遞**依賴，而 `[tool.uv.sources]` 只綁定直接依賴。host driver 回報 CUDA 13.3，cu130 反而更相符，在 4060 上實測正常。
+Torch 解析為 PyPI 的 `2.13.0+cu130`，而非規格指定的 cu124 index：torch 為 sentence-transformers 的傳遞依賴，而 `[tool.uv.sources]` 僅綁定直接依賴。host driver 回報 CUDA 13.3，與 cu130 相符，於 RTX 4060 上實測可用。
 
 ---
 
 ## 限制
 
-- **agentic 增益尚未測得。** 在 ablation 產出前不宣稱 B3 優於 B0。
-- gold cases 為機器草擬、未經史學專家覆核，只能當回歸訊號，不是史學正確性的外部評估。
-- gold set 結構性偏向詞彙檢索，無法公平評估向量臂；中文能力目前只有質性證據與回歸測試，沒有量化分數。
-- 中文題的 ablation 混入翻譯貢獻，不可單獨解讀。
-- 不做網路檢索。FRUS 查不到就拒答，不用網路內容冒充史料。
-- 規劃中但未出版的 142 個卷次只存在於 manifest，內容無從檢索；問到這些主題應得到拒答。
-- 語料 pinned 在單一 commit，官方後續修訂不會自動反映。
+- agentic 增益尚未量測；在 ablation 產出前不就 B3 與 B0 的相對表現提出主張。
+- gold cases 為機器草擬且未經史學專業覆核，適用範圍為回歸訊號，不構成史學正確性的外部評估。
+- gold set 結構性偏向詞彙檢索，無法對向量臂作對等評估；中文能力目前僅有質性證據與回歸測試，尚無量化分數。
+- 中文題的 ablation 含查詢語言差異，其數值不宜單獨解讀。
+- 不實作網路檢索。FRUS 無法涵蓋的問題一律拒答，不以網路內容替代史料。
+- 規劃中但未出版的 142 個卷次僅存在於 manifest，內容不可檢索；涉及該範圍的問題應得到拒答。
+- 語料固定於單一 commit，官方後續修訂不會自動反映。
 
 ## 授權與使用
 
-程式碼供個人研究與作品展示。FRUS 為美國國務院歷史文獻辦公室之公開出版品，本專案不重新散布原始 XML。
+程式碼供個人研究與作品展示。FRUS 為美國國務院歷史文獻辦公室之公開出版品；本專案不重新散布原始 XML。
