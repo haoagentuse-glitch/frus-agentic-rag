@@ -89,13 +89,13 @@ class AgentState(TypedDict):
     original_question: str
     answer_language: Literal["zh-TW", "en"]
     route: Literal["social", "simple", "complex"]
-    subqueries: list[SubQuery]          # max 3
+    subqueries: list[SubQuery]  # max 3
     evidence: list[Evidence]
     missing_subqueries: list[str]
-    retrieval_attempts: int             # max 2
+    retrieval_attempts: int  # max 2
     draft_answer: str | None
     citation_errors: list[str]
-    repair_attempts: int                # max 1
+    repair_attempts: int  # max 1
     outcome: Literal["answer", "abstain"] | None
     trace: list[TraceEvent]
 ```

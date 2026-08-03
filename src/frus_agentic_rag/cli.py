@@ -47,9 +47,16 @@ def ingest(
     bm25: bool = typer.Option(True, help="Build the BM25 index afterwards"),
 ) -> None:
     """Parse TEI to chunk parquet, then load LanceDB and build BM25."""
-    from frus_agentic_rag.index.build import build_bm25_index, corpus_stats, load_into_lancedb, parse_all
+    from frus_agentic_rag.index.build import (
+        build_bm25_index,
+        corpus_stats,
+        load_into_lancedb,
+        parse_all,
+    )
 
-    stats = parse_all(limit_volumes=limit_volumes, volume_ids=list(volume) if volume else None, resume=resume)
+    stats = parse_all(
+        limit_volumes=limit_volumes, volume_ids=list(volume) if volume else None, resume=resume
+    )
     result = {"parse": {k: v for k, v in stats.items() if k != "per_volume"}}
     if load:
         result["lancedb"] = load_into_lancedb(rebuild=not resume)
@@ -89,12 +96,13 @@ def embed(
     """Run BGE-M3 over parsed chunks, checkpointing per volume."""
     from frus_agentic_rag.index.embed import embed_all
 
+    # --all means "no cap"; it wins over a stale --limit-volumes on the line.
     _echo(
         embed_all(
             resume=resume,
             device=device,
             batch_size=batch_size,
-            limit_volumes=limit_volumes if not all_ else limit_volumes,
+            limit_volumes=None if all_ else limit_volumes,
         )
     )
 
@@ -129,12 +137,19 @@ def search(
     from frus_agentic_rag.retrieval.hybrid import hybrid_search_sync
     from frus_agentic_rag.retrieval.models import SearchFilters
 
-    hits = hybrid_search_sync(query, SearchFilters(volume_ids=list(volume) if volume else []), top_k)
+    hits = hybrid_search_sync(
+        query, SearchFilters(volume_ids=list(volume) if volume else []), top_k
+    )
     t = Table("rank", "evidence_id", "date", "head", "bm25", "dense", "score")
     for i, h in enumerate(hits, 1):
         t.add_row(
-            str(i), h.evidence_id, h.date_from, h.head[:60],
-            str(h.rank_bm25 or "-"), str(h.rank_dense or "-"), f"{h.score:.4f}",
+            str(i),
+            h.evidence_id,
+            h.date_from,
+            h.head[:60],
+            str(h.rank_bm25 or "-"),
+            str(h.rank_dense or "-"),
+            f"{h.score:.4f}",
         )
     console.print(t)
 

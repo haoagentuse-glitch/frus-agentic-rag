@@ -107,7 +107,7 @@ class FakeClient:
     _grade_i: int = 0
     seen: list[str] = field(default_factory=list)
 
-    async def structured(self, system: str, user: str, schema):  # noqa: ANN001
+    async def structured(self, system: str, user: str, schema):
         self.calls += 1
         if schema is QueryPlan:
             self.seen.append("plan")
@@ -116,7 +116,8 @@ class FakeClient:
                 answer_language="en",
                 needs_retrieval=True,
                 subqueries=[
-                    SubQuery(hop_id=f"h{i}", query=f"hop {i} query") for i in range(self.n_subqueries)
+                    SubQuery(hop_id=f"h{i}", query=f"hop {i} query")
+                    for i in range(self.n_subqueries)
                 ],
                 required_evidence=[f"fact {i}" for i in range(self.n_subqueries)],
             )

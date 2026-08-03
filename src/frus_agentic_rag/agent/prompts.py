@@ -105,7 +105,8 @@ def synth_user(question: str, evidence: list[Evidence]) -> str:
 
 ABSTAIN_ZH = (
     "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。"
-    "FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    "FRUS 只收錄已出版卷次的解密外交文件；"
+    "若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
 )
 ABSTAIN_EN = (
     "The retrieved FRUS documents do not support a grounded answer. "

@@ -102,9 +102,7 @@ class NodeTimer:
 
     def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         self.event["ended_at"] = time.time()
-        self.event["duration_s"] = round(
-            self.event["ended_at"] - self.event["started_at"], 3
-        )
+        self.event["duration_s"] = round(self.event["ended_at"] - self.event["started_at"], 3)
         if exc is not None:
             self.event["error"] = f"{exc_type.__name__}: {exc}"
         if self._span is not None:

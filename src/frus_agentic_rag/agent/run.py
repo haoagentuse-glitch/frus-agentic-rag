@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from frus_agentic_rag import observability as obs
 from frus_agentic_rag.agent.graph import build_graph
 from frus_agentic_rag.agent.nodes import detect_language
+from frus_agentic_rag.agent.schemas import Language
 from frus_agentic_rag.agent.state import new_state
 from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.generation import citations as cite
@@ -22,7 +23,7 @@ async def answer(
     thread_id: str | None = None,
     checkpointer: Any = None,
 ) -> Answer:
-    language = language or detect_language(question)
+    language = cast(Language, language or detect_language(question))
     client = get_client()
     client.calls = 0
     obs.setup()
@@ -33,16 +34,19 @@ async def answer(
         "recursion_limit": get_settings().budgets.recursion_limit,
         "configurable": {"thread_id": thread_id or f"{system}-{abs(hash(question))}"},
     }
-    with obs.span(f"frus.answer.{system}", kind="AGENT", **{
-        "frus.system": system, "frus.language": language
-    }) as root:
+    with obs.span(
+        f"frus.answer.{system}", kind="AGENT", **{"frus.system": system, "frus.language": language}
+    ) as root:
         obs.set_input(root, question)
-        final = await graph.ainvoke(new_state(question, language, system), config=config)  # type: ignore[arg-type]
-        obs.set_output(root, {
-            "outcome": final.get("outcome"),
-            "answer": (final.get("draft_answer") or "")[:2000],
-            "citations": final.get("citations", []),
-        })
+        final = await graph.ainvoke(new_state(question, language, system), config=config)
+        obs.set_output(
+            root,
+            {
+                "outcome": final.get("outcome"),
+                "answer": (final.get("draft_answer") or "")[:2000],
+                "citations": final.get("citations", []),
+            },
+        )
     latency = time.perf_counter() - t0
 
     evidence: list[Evidence] = final.get("evidence", [])
@@ -51,7 +55,7 @@ async def answer(
 
     return Answer(
         question=question,
-        language=language,  # type: ignore[arg-type]
+        language=language,
         outcome=outcome,  # type: ignore[arg-type]
         answer_text=final.get("draft_answer") or "",
         claims=[Claim(**c) for c in final.get("claims", [])],
@@ -79,7 +83,7 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
     from frus_agentic_rag.retrieval.models import SearchFilters
     from frus_agentic_rag.retrieval.tools import get_toolbox
 
-    language = language or detect_language(question)
+    language = cast(Language, language or detect_language(question))
     settings = get_settings()
     client = get_client()
     client.calls = 0
@@ -91,9 +95,13 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
 
     if not evidence:
         return Answer(
-            question=question, language=language, outcome="abstain",  # type: ignore[arg-type]
-            abstain_reason="no evidence retrieved", system="B0-2step",
-            latency_s=round(time.perf_counter() - t0, 3), retrieval_calls=1,
+            question=question,
+            language=language,
+            outcome="abstain",
+            abstain_reason="no evidence retrieved",
+            system="B0-2step",
+            latency_s=round(time.perf_counter() - t0, 3),
+            retrieval_calls=1,
         )
 
     zh = language == "zh-TW"
@@ -101,21 +109,25 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
         draft = await client.structured(
             SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN, synth_user(question, evidence), AgentAnswer
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return Answer(
-            question=question, language=language, outcome="abstain",  # type: ignore[arg-type]
-            abstain_reason=f"generation failed: {exc}", system="B0-2step",
-            llm_calls=client.calls, retrieval_calls=1,
+            question=question,
+            language=language,
+            outcome="abstain",
+            abstain_reason=f"generation failed: {exc}",
+            system="B0-2step",
+            llm_calls=client.calls,
+            retrieval_calls=1,
             latency_s=round(time.perf_counter() - t0, 3),
         )
 
     claims = [Claim(text=c.text, evidence_ids=c.evidence_ids) for c in draft.claims]
     text = cite.strip_urls(draft.answer_text)
-    errors, cited, lines = cite.validate(claims, text, evidence)
+    errors, _cited, lines = cite.validate(claims, text, evidence)
 
     return Answer(
         question=question,
-        language=language,  # type: ignore[arg-type]
+        language=language,
         outcome="abstain" if errors else "answer",
         answer_text=text if not errors else "",
         claims=claims,

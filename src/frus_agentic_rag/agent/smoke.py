@@ -61,12 +61,18 @@ PATHS = [
 
 
 async def _run_one(
-    name: str, route: str, n_sub: int, grades: list[str], question: str, tb_kwargs: dict, expect: str
+    name: str,
+    route: str,
+    n_sub: int,
+    grades: list[str],
+    question: str,
+    tb_kwargs: dict,
+    expect: str,
 ) -> dict:
     tb = fakes.FakeToolbox(**tb_kwargs)
     client = fakes.FakeClient(route=route, n_subqueries=n_sub, grade_sequence=grades)
 
-    tools.set_toolbox(tb)  # type: ignore[arg-type]
+    tools.set_toolbox(tb)
     ollama_client._CLIENT = client  # type: ignore[assignment]
     try:
         result = await run.answer(question, language="en", system="B3")

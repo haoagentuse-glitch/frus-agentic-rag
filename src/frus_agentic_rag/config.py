@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     bge_model_path: str = ""
     embed_device: Literal["cpu", "cuda"] = "cpu"
     embed_batch_size: int = 16
+    embed_fp16: bool = True
     max_chunk_tokens: int = 512
     chunk_overlap_tokens: int = 64
     embed_dim: int = 1024

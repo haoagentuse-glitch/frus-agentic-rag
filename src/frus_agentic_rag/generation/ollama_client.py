@@ -106,8 +106,12 @@ class OllamaClient:
             r = await client.get(f"{self.host}/api/tags")
             r.raise_for_status()
             tags = [m["name"] for m in r.json().get("models", [])]
-        return {"host": self.host, "models": tags, "target": self.model,
-                "target_present": self.model in tags}
+        return {
+            "host": self.host,
+            "models": tags,
+            "target": self.model,
+            "target_present": self.model in tags,
+        }
 
 
 _CLIENT: OllamaClient | None = None

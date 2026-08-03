@@ -41,7 +41,10 @@ def validate(
     """
     errors: list[str] = []
     by_id = {e.evidence_id: e for e in retrieved}
-    allowed = set(accepted_ids) if accepted_ids else set(by_id)
+    # None means no grading happened, so anything retrieved may be cited.
+    # An empty list means the grader accepted nothing, which must block —
+    # collapsing the two would let a failed grade wave everything through.
+    allowed = set(by_id) if accepted_ids is None else set(accepted_ids)
     published = _published_volumes()
 
     cited: dict[str, Evidence] = {}

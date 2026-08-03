@@ -26,7 +26,7 @@ def get_tokenizer() -> PreTrainedTokenizerFast:
     tok = AutoTokenizer.from_pretrained(settings.bge_model_path, local_files_only=True)
     if not tok.is_fast:  # offset mapping is what makes the slicing exact
         raise RuntimeError("BGE-M3 tokenizer must be a fast tokenizer")
-    return tok  # type: ignore[return-value]
+    return tok
 
 
 def chunk_document(doc: FrusDocument) -> list[Chunk]:

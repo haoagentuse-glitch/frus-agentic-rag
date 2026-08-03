@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -85,7 +86,13 @@ def parse_all(
     if limit_volumes:
         published = published[:limit_volumes]
 
-    stats = {"volumes": 0, "chunks": 0, "skipped": 0, "per_volume": {}}
+    per_volume: dict[str, int] = {}
+    stats: dict[str, Any] = {
+        "volumes": 0,
+        "chunks": 0,
+        "skipped": 0,
+        "per_volume": per_volume,
+    }
     for row in published:
         vid = row["volume_id"]
         out = settings.chunks_dir / f"{vid}.parquet"
@@ -96,7 +103,7 @@ def parse_all(
             n = parse_volume(vid, Path(row["path"]), settings.embed_dim)
         stats["volumes"] += 1
         stats["chunks"] += n
-        stats["per_volume"][vid] = n
+        per_volume[vid] = n
     return stats
 
 

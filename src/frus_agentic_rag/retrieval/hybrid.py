@@ -85,9 +85,7 @@ def dense_search(query: str, filters: SearchFilters, limit: int) -> list[dict]:
     return _rows(tbl.search(vec, vector_column_name="vector"), limit, where)
 
 
-def rrf_fuse(
-    ranked_lists: list[list[dict]], k: int, top_k: int, hop: str = ""
-) -> list[Evidence]:
+def rrf_fuse(ranked_lists: list[list[dict]], k: int, top_k: int, hop: str = "") -> list[Evidence]:
     scores: dict[str, float] = {}
     payload: dict[str, dict] = {}
     ranks: dict[str, dict[str, int]] = {}

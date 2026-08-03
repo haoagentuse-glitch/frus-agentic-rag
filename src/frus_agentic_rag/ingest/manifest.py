@@ -46,9 +46,7 @@ def read_volume_meta(path: Path) -> VolumeMeta:
         vol_id = idno.text.strip()
 
     titles = {t.get("type"): _text(t) for t in root.iterfind(f".//{T}titleStmt/{T}title")}
-    editors = [
-        _text(e) for e in root.iterfind(f".//{T}titleStmt/{T}editor") if _text(e)
-    ]
+    editors = [_text(e) for e in root.iterfind(f".//{T}titleStmt/{T}editor") if _text(e)]
 
     pub_year = ""
     date_from = date_to = ""

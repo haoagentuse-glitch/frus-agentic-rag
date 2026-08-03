@@ -65,8 +65,13 @@ class LiveToolbox:
         self, query: str, filters: SearchFilters, top_k: int = 10, hop: str = ""
     ) -> list[Evidence]:
         with obs.retriever_span(
-            "hybrid_search", query, **{"frus.hop": hop, "frus.top_k": top_k,
-                                       "frus.filters": filters.model_dump(exclude_defaults=True)}
+            "hybrid_search",
+            query,
+            **{
+                "frus.hop": hop,
+                "frus.top_k": top_k,
+                "frus.filters": filters.model_dump(exclude_defaults=True),
+            },
         ) as sp:
             hits = await hybrid_search(query, filters, top_k, hop)
             obs.record_documents(sp, hits)
@@ -107,7 +112,8 @@ class LiveToolbox:
             }
         )
         with obs.retriever_span(
-            "timeline_search", query,
+            "timeline_search",
+            query,
             **{"frus.hop": hop, "frus.date_from": date_from, "frus.date_to": date_to},
         ) as sp:
             hits = await hybrid_search(query, merged, top_k, hop)

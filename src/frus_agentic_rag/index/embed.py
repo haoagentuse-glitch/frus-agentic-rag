@@ -27,16 +27,28 @@ def get_model(device: str | None = None) -> Any:
     settings = get_settings()
     device = device or settings.embed_device
     if _MODEL is None or getattr(_MODEL, "_frus_device", None) != device:
+        import torch
         from sentence_transformers import SentenceTransformer
 
-        model = SentenceTransformer(settings.bge_model_path, device=device)
+        # fp16 on CUDA only. BGE-M3 is a 568M-parameter XLM-R Large; in fp32 the
+        # 4060 is compute-bound well before it is memory-bound, and half
+        # precision is the difference between a 12-hour and a 6-hour full run.
+        kwargs: dict[str, Any] = {}
+        if device == "cuda" and settings.embed_fp16:
+            kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
+
+        model = SentenceTransformer(settings.bge_model_path, device=device, **kwargs)
         model.max_seq_length = settings.max_chunk_tokens
-        model._frus_device = device  # type: ignore[attr-defined]
+        # Tag the instance so a device switch rebuilds it instead of
+        # silently reusing a CPU model for a CUDA run.
+        model._frus_device = device  # type: ignore[assignment]
         _MODEL = model
     return _MODEL
 
 
-def encode(texts: list[str], device: str | None = None, batch_size: int | None = None) -> np.ndarray:
+def encode(
+    texts: list[str], device: str | None = None, batch_size: int | None = None
+) -> np.ndarray:
     settings = get_settings()
     model = get_model(device)
     return model.encode(
@@ -48,7 +60,9 @@ def encode(texts: list[str], device: str | None = None, batch_size: int | None =
     ).astype(np.float32)
 
 
-def encode_with_oom_backoff(texts: list[str], device: str, batch_size: int) -> tuple[np.ndarray, int]:
+def encode_with_oom_backoff(
+    texts: list[str], device: str, batch_size: int
+) -> tuple[np.ndarray, int]:
     """Halve the batch on CUDA OOM rather than losing the whole run: 16 -> 8 -> 4."""
     import torch
 
@@ -88,9 +102,7 @@ def save_state(state: dict) -> None:
 # --- main loop -----------------------------------------------------------
 
 
-def embed_volume(
-    parquet_path: Path, device: str, batch_size: int, merge: bool = True
-) -> dict:
+def embed_volume(parquet_path: Path, device: str, batch_size: int, merge: bool = True) -> dict:
     table = pq.read_table(parquet_path)
     n = table.num_rows
     if n == 0:
@@ -197,7 +209,9 @@ def embed_all(
     }
 
 
-def benchmark(n_chunks: int = 10_000, device: str | None = None, batch_size: int | None = None) -> dict:
+def benchmark(
+    n_chunks: int = 10_000, device: str | None = None, batch_size: int | None = None
+) -> dict:
     """Measure throughput on a real sample before committing to the full run."""
     settings = get_settings()
     device = device or settings.embed_device
@@ -264,4 +278,4 @@ def _estimate_total_chunks() -> int:
     all_docs = sum(r["n_historical_documents"] for r in manifest)
     if parsed_docs == 0:
         return parsed_chunks
-    return int(round(parsed_chunks / parsed_docs * all_docs))
+    return round(parsed_chunks / parsed_docs * all_docs)

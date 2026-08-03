@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import json
 import os
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 _TRACER: Any = None
@@ -56,7 +56,7 @@ def setup(project_name: str | None = None) -> Any:
             set_global_tracer_provider=True,
         )
         _TRACER = provider.get_tracer("frus_agentic_rag")
-    except Exception as exc:  # noqa: BLE001 — observability must never break the run
+    except Exception as exc:
         print(f"[observability] Phoenix disabled: {type(exc).__name__}: {exc}", flush=True)
         _TRACER = None
     return _TRACER
@@ -224,5 +224,5 @@ def flush() -> None:
         provider = trace.get_tracer_provider()
         if hasattr(provider, "force_flush"):
             provider.force_flush(5000)
-    except Exception:  # noqa: BLE001, S110 — never fail a run on telemetry
+    except Exception:
         pass

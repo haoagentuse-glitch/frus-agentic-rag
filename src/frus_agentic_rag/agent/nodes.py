@@ -91,7 +91,7 @@ async def plan_query(state: AgentState) -> dict:
         try:
             plan = await client.structured(PLANNER_SYSTEM, planner_user(question), QueryPlan)
             used = client.calls
-        except (StructuredOutputError, Exception) as exc:  # noqa: BLE001
+        except (StructuredOutputError, Exception) as exc:
             # Gate 2 of the kill-test: a broken planner must not break the run.
             ev["error"] = f"planner fallback: {type(exc).__name__}: {exc}"
             ev["detail"] = {"route": fallback_route, "planner": "rule-first fallback"}
@@ -263,7 +263,7 @@ async def grade_evidence(state: AgentState) -> dict:
                 grader_user(state["question"], hops, evidence[: get_settings().top_k]),
                 EvidenceGrade,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # A failed grader must not fabricate support; treat as partial and
             # let the retrieval-round budget end the run.
             ev["error"] = f"grader fallback: {type(exc).__name__}: {exc}"
@@ -308,9 +308,7 @@ async def rewrite_missing(state: AgentState) -> dict:
     with NodeTimer("rewrite_missing") as ev:
         missing = state.get("missing_hops", [])[: get_settings().budgets.max_subqueries]
         subs = [
-            SubQuery(hop_id=f"fix{i}", query=q)
-            for i, q in enumerate(missing)
-            if q and q.strip()
+            SubQuery(hop_id=f"fix{i}", query=q) for i, q in enumerate(missing) if q and q.strip()
         ]
         ev["detail"] = {"rewritten": [s.query for s in subs]}
         return {
@@ -339,7 +337,7 @@ async def synthesize(state: AgentState) -> dict:
                 synth_user(state["question"], usable),
                 AgentAnswer,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             ev["error"] = f"synthesis failed: {type(exc).__name__}: {exc}"
             return {"draft_answer": None, "claims": [], "llm_calls": client.calls, "trace": [ev]}
 
@@ -364,7 +362,10 @@ async def validate_citations(state: AgentState) -> dict:
 
         claims = [Claim(**c) for c in state.get("claims", [])]
         evidence = state.get("evidence", [])
-        accepted = state.get("accepted_evidence_ids") or None
+        # Pass the list through as-is: grade_evidence always populates it (with
+        # every id, for the ungraded systems), so an empty list here genuinely
+        # means nothing was accepted.
+        accepted = state.get("accepted_evidence_ids")
 
         errors, cited, lines = cite.validate(claims, draft, evidence, accepted)
 
