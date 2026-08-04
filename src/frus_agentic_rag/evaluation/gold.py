@@ -263,7 +263,9 @@ def build_gold_cases(
             {
                 "case_id": f"lookup-{len(cases):02d}",
                 "kind": "lookup",
+                # One named document. No other route is defensible here.
                 "route": "lookup",
+                "acceptable_routes": ["lookup"],
                 "question_en": (
                     f"What does the FRUS document titled '{topic}', dated {d['date_from']}, say?"
                 ),
@@ -310,7 +312,10 @@ def build_gold_cases(
             {
                 "case_id": f"multihop-{len(cases):02d}",
                 "kind": "multihop",
+                # Two or more facts about one entity across a date range. Both
+                # decompositions are legitimate readings of the question.
                 "route": "complex",
+                "acceptable_routes": ["complex", "timeline"],
                 "question_en": (
                     f"In the FRUS volume on {subject}, what did {term} report or argue, "
                     f"and how did that develop between {d0['date_from']} and "
@@ -371,7 +376,11 @@ def build_gold_cases(
             {
                 "case_id": f"correction-{len(cases):02d}",
                 "kind": "correction",
-                "route": "simple",
+                # "What did the official report, and what was decided?" asks two
+                # things; labelling it simple because the gold set has one gold
+                # document confuses the answer's size with the question's shape.
+                "route": "complex",
+                "acceptable_routes": ["simple", "complex"],
                 "variant": "mismatch",
                 "question_en": (
                     f"In {year}, in the context of {subject}, one American official "
@@ -394,7 +403,8 @@ def build_gold_cases(
             {
                 "case_id": f"correction-{len(cases):02d}",
                 "kind": "correction_matched",
-                "route": "simple",
+                "route": "complex",
+                "acceptable_routes": ["simple", "complex"],
                 "variant": "matched",
                 "question_en": f"In {year}, what did {term} report, and what was decided?",
                 "question_zh": f"{year} 年，{term} 報告了什麼？後續做出什麼決定？",
@@ -410,22 +420,26 @@ def build_gold_cases(
     planned = [r for r in load_manifest().to_pylist() if r["status"] == "planned"]
     unanswerable = [
         {
+            "routes": ["simple"],
             "question_en": "What does FRUS say about the 2019 US-China trade negotiations?",
             "question_zh": "FRUS 對 2019 年美中貿易談判有什麼記載？",
             "notes": "outside the published date range entirely",
         },
         {
+            "routes": ["lookup", "simple"],
             "question_en": "Summarise the FRUS volume on the 2011 Arab Spring cables.",
             "question_zh": "請摘要 FRUS 中關於 2011 年阿拉伯之春電報的那一卷。",
             "notes": "no such volume exists",
         },
         {
+            "routes": ["lookup", "simple"],
             "question_en": "Which FRUS document records the minutes of the 2024 NATO summit?",
             "question_zh": "哪一份 FRUS 文件記錄了 2024 年北約峰會的會議紀錄？",
             "notes": "post-dates the corpus",
         },
         {
             "question_en": (
+                # Asks about publication state, which is exactly the status route.
                 f"What are the contents of the planned volume {planned[0]['volume_id']}?"
                 if planned
                 else "What are the contents of a volume that is only planned?"
@@ -435,20 +449,24 @@ def build_gold_cases(
                 if planned
                 else "尚未出版的那一卷內容是什麼？"
             ),
+            "routes": ["status", "lookup"],
             "notes": "planned stub: manifest knows it, corpus has no documents",
         },
         {
+            "routes": ["simple"],
             "question_en": "What is the current US ambassador to Japan's phone number?",
             "question_zh": "現任美國駐日大使的電話號碼是什麼？",
             "notes": "not a historical-document question at all",
         },
     ]
     for i, u in enumerate(unanswerable[:n_unanswerable]):
+        routes = u.get("routes") or ["status", "lookup"]
         cases.append(
             {
                 "case_id": f"unanswerable-{i:02d}",
                 "kind": "unanswerable",
-                "route": "simple",
+                "route": routes[0],
+                "acceptable_routes": routes,
                 "question_en": u["question_en"],
                 "question_zh": u["question_zh"],
                 "gold_documents": [],

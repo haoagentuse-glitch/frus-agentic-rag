@@ -97,6 +97,7 @@ async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> 
         "system": system,
         "language": language,
         "expected_route": case.get("route"),
+        "acceptable_routes": case.get("acceptable_routes") or [case.get("route")],
         "rule_route": rule_route(question),
         "actual_route": next(
             (
@@ -227,6 +228,21 @@ def summarise(rows: list[dict]) -> dict:
         "judge_score_mean": _mean([r["judge_score"] for r in ok]),
         "route_macro_f1": _macro_f1(ok),
         "rule_route_macro_f1": _macro_f1(ok, key="rule_route"),
+        # Several questions admit more than one defensible route: "what did X
+        # report, and what was decided" is both simple and complex, and a
+        # question about whether a volume exists is both status and lookup. The
+        # acceptable set is declared per case in the gold file, alongside the
+        # single primary label, so strict and permissive scores are both visible.
+        "route_accuracy_strict": _mean(
+            [1.0 if r.get("actual_route") == r["expected_route"] else 0.0 for r in ok]
+        ),
+        "route_accuracy_acceptable": _mean(
+            [
+                1.0 if r.get("actual_route") in (r.get("acceptable_routes") or []) else 0.0
+                for r in ok
+                if r.get("acceptable_routes")
+            ]
+        ),
         "simple_over_decomposed_pct": round(
             100
             * sum(
