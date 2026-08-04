@@ -31,6 +31,24 @@ def available() -> bool:
     return bool(get_settings().reranker_model_path) and not _DISABLED
 
 
+def resolve_device(configured: str) -> str:
+    """Prefer CUDA when it is there.
+
+    Measured on this machine, the same 50-pair rerank takes 1.0s on GPU and
+    62.6s on CPU. Defaulting to CPU and relying on the caller to pass a flag
+    made a 60x penalty the consequence of forgetting an environment variable,
+    which is not a default worth keeping.
+    """
+    if configured != "cpu":
+        return configured
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
+
+
 def get_model(device: str | None = None) -> Any:
     """Load the cross-encoder, or disable reranking for the rest of the process.
 
@@ -40,7 +58,7 @@ def get_model(device: str | None = None) -> Any:
     """
     global _MODEL, _DISABLED
     settings = get_settings()
-    device = device or settings.reranker_device
+    device = device or resolve_device(settings.reranker_device)
     if _MODEL is None or getattr(_MODEL, "_frus_device", None) != device:
         import torch
         from sentence_transformers import CrossEncoder
