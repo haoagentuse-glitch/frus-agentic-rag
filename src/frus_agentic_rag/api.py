@@ -64,6 +64,9 @@ async def health() -> dict:
     except Exception as exc:
         out["index"] = {"error": str(exc)}
         out["status"] = "degraded"
+    from frus_agentic_rag.retrieval import rerank as rr
+
+    out["reranker"] = rr.warm()
     out["tracing"] = {"phoenix": obs.enabled()}
     return out
 

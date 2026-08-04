@@ -325,11 +325,17 @@ def retriever_fingerprint() -> dict:
         embedded = tbl.count_rows("embedded = true")
     except Exception:
         return {"rows": 0, "embedded": 0, "mode": "unavailable"}
-    return {
-        "rows": rows,
-        "embedded": embedded,
-        "mode": "bm25-only" if embedded == 0 else ("hybrid" if embedded == rows else "partial"),
-    }
+    from frus_agentic_rag.retrieval import rerank as rr
+
+    mode = "bm25-only" if embedded == 0 else ("hybrid" if embedded == rows else "partial")
+    # Reranking changes the order the whole pipeline sees, so a sweep run with
+    # it is not comparable to one run without: it belongs in the fingerprint.
+    # `warm()` loads the model rather than trusting the configured path — a
+    # half-downloaded checkpoint silently falls back to RRF, and a fingerprint
+    # claiming "+rerank" over RRF results is exactly the mixing this guards.
+    if rr.warm().get("available"):
+        mode = f"{mode}+rerank"
+    return {"rows": rows, "embedded": embedded, "mode": mode}
 
 
 def _load_completed(path: Path, fingerprint: dict) -> tuple[dict[tuple[str, str, str], dict], int]:

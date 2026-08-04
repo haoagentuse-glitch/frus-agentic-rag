@@ -201,6 +201,22 @@ def hybrid_search_sync(
     except Exception:
         # A corpus with BM25 but no vectors yet is a supported intermediate state.
         dense = []
+
+    from frus_agentic_rag.retrieval import rerank as rr
+
+    if rr.available():
+        # Fuse wide, then let the cross-encoder decide the order. RRF picks the
+        # final list on similarity alone, which is the step that was losing the
+        # gold documents the arms had already found.
+        fused = rrf_fuse([lexical, heads, dense], settings.rrf_k, settings.rerank_candidates, hop)
+        scored = rr.rerank(query, [e.model_dump() for e in fused], top_k)
+        by_id = {e.evidence_id: e for e in fused}
+        return [
+            #  is absent when the cross-encoder declined or is
+            # disabled; the fallback is RRF order, not a crash.
+            by_id[r["evidence_id"]].model_copy(update={"rank_rerank": r.get("_rerank")})
+            for r in scored
+        ]
     return rrf_fuse([lexical, heads, dense], settings.rrf_k, top_k, hop=hop)
 
 

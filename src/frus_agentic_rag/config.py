@@ -85,6 +85,16 @@ class Settings(BaseSettings):
     # vectors; measured dense recall@10 rose from 0.070 to 0.116 at 400/20.
     ann_nprobes: int = 400
     ann_refine_factor: int = 20
+    # Cross-encoder reranking over the fused candidates. Empty path disables it
+    # and the pipeline falls back to RRF order. rerank_candidates is how many of
+    # the fused list the cross-encoder scores; measured, 91.7% of gold documents
+    # sit inside 50 per hop while RRF's top 14 carried 37.5%.
+    reranker_model_path: str = ""
+    reranker_device: Literal["cpu", "cuda"] = "cpu"
+    reranker_batch_size: int = 16
+    reranker_max_length: int = 512
+    reranker_max_chars: int = 1800
+    rerank_candidates: int = 50
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")

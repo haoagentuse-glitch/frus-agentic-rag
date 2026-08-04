@@ -7,6 +7,14 @@ cd "$(dirname "$0")/.."
 HUB=/home/haoche_nitro_v15/.cache/huggingface/hub
 SNAP=$(cat "$HUB/models--BAAI--bge-m3/refs/main")
 
+# Reranker is optional: an unset path disables cross-encoder reranking and the
+# pipeline falls back to RRF order.
+RERANK=""
+RR_REF="$HUB/models--BAAI--bge-reranker-v2-m3/refs/main"
+if [[ -f "$RR_REF" ]]; then
+  RERANK="/models/hf-hub/models--BAAI--bge-reranker-v2-m3/snapshots/$(cat "$RR_REF")"
+fi
+
 GPU_ARGS=()
 [[ "${FRUS_GPU:-0}" == "1" ]] && GPU_ARGS=(--gpus all)
 
@@ -22,6 +30,8 @@ exec docker run --rm -i "${GPU_ARGS[@]}" \
   -e FRUS_LANCEDB_URI=/workspace/data/index/lancedb \
   -e FRUS_REPORTS_DIR=/workspace/reports \
   -e FRUS_BGE_MODEL_PATH="/models/hf-hub/models--BAAI--bge-m3/snapshots/$SNAP" \
+  -e FRUS_RERANKER_MODEL_PATH="${FRUS_RERANKER_MODEL_PATH-$RERANK}" \
+  -e FRUS_RERANKER_DEVICE="${FRUS_RERANKER_DEVICE:-cpu}" \
   -e FRUS_EMBED_DEVICE="${FRUS_EMBED_DEVICE:-cpu}" \
   -e FRUS_OLLAMA_HOST="${FRUS_OLLAMA_HOST:-http://localhost:11434}" \
   -e PHOENIX_COLLECTOR_ENDPOINT="${PHOENIX_COLLECTOR_ENDPOINT:-http://localhost:6006}" \
