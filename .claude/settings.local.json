@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(docker compose *)",
-      "Bash(docker image *)"
+      "Bash(docker image *)",
+      "Bash(./scripts/dev.sh python -c ' *)",
+      "Bash(./scripts/dev.sh python *)"
     ]
   }
 }

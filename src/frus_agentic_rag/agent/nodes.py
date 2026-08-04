@@ -10,6 +10,7 @@ from frus_agentic_rag.agent.llm import StructuredOutputError, get_client
 from frus_agentic_rag.agent.prompts import (
     ABSTAIN_EN,
     ABSTAIN_ZH,
+    GRADER_MAX_EVIDENCE,
     GRADER_SYSTEM,
     PLANNER_SYSTEM,
     SYNTH_SYSTEM_EN,
@@ -131,13 +132,36 @@ async def plan_query(state: AgentState) -> dict:
         }
 
 
-def _filters(sq: SubQuery) -> SearchFilters:
-    return SearchFilters(
-        volume_ids=sq.volume_ids,
-        date_from=sq.date_from,
-        date_to=sq.date_to,
-        persons=sq.persons,
-        subtypes=["historical-document"],
+def _filters(sq: SubQuery) -> tuple[SearchFilters, dict]:
+    """Typed filters from a planned subquery, with the model's guesses checked.
+
+    The planner has no way to know FRUS volume ids and invents them; an
+    unresolvable id passed into the store matches nothing and empties the
+    retrieval without raising. Everything it supplies is therefore resolved
+    against the manifest or dropped, and what was dropped is returned so the
+    trace can show it.
+    """
+    from frus_agentic_rag.corpus.manifest import resolve_volume_ids, valid_iso_date
+
+    volumes, dropped_volumes = resolve_volume_ids(sq.volume_ids)
+    date_from, date_to = valid_iso_date(sq.date_from), valid_iso_date(sq.date_to)
+    dropped_dates = [
+        d for d, kept in ((sq.date_from, date_from), (sq.date_to, date_to)) if d and not kept
+    ]
+    rejected = {}
+    if dropped_volumes:
+        rejected["volume_ids"] = dropped_volumes
+    if dropped_dates:
+        rejected["dates"] = dropped_dates
+    return (
+        SearchFilters(
+            volume_ids=volumes,
+            date_from=date_from,
+            date_to=date_to,
+            persons=sq.persons,
+            subtypes=["historical-document"],
+        ),
+        rejected,
     )
 
 
@@ -161,6 +185,9 @@ async def dispatch_retrieval(state: AgentState) -> dict:
                 "trace": [ev],
             }
 
+        rejected_filters: list[dict] = []
+        relaxed: list[str] = []
+
         async def run(sq: SubQuery) -> list:
             if route == "lookup":
                 m = re.search(r"(frus[\w\-]+)\D+(\d+)", sq.query, re.I)
@@ -168,11 +195,25 @@ async def dispatch_retrieval(state: AgentState) -> dict:
                     hits = await tb.lookup_document(m.group(1), f"d{m.group(2)}")
                     if hits:
                         return hits
+            filters, rejected = _filters(sq)
+            if rejected:
+                rejected_filters.append({"hop": sq.hop_id, **rejected})
+
             if route == "timeline":
-                return await tb.timeline_search(
-                    sq.query, sq.date_from, sq.date_to, _filters(sq), top_k, sq.hop_id
+                hits = await tb.timeline_search(
+                    sq.query, filters.date_from, filters.date_to, filters, top_k, sq.hop_id
                 )
-            return await tb.hybrid_search(sq.query, _filters(sq), top_k, sq.hop_id)
+            else:
+                hits = await tb.hybrid_search(sq.query, filters, top_k, sq.hop_id)
+
+            # A filter that removes every candidate is worse than no filter: the
+            # question is still answerable, the constraint was just wrong.
+            if not hits and (filters.volume_ids or filters.date_from or filters.date_to):
+                relaxed.append(sq.hop_id)
+                hits = await tb.hybrid_search(
+                    sq.query, SearchFilters(subtypes=["historical-document"]), top_k, sq.hop_id
+                )
+            return hits
 
         results = await asyncio.gather(*(run(s) for s in subs), return_exceptions=True)
         fresh = []
@@ -192,6 +233,8 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             "hops": [s.hop_id for s in subs],
             "hits": len(fresh),
             "errors": errors,
+            "rejected_filters": rejected_filters,
+            "relaxed_hops": relaxed,
         }
         return {
             "evidence": _merge(state.get("evidence", []), fresh),
@@ -256,11 +299,15 @@ async def grade_evidence(state: AgentState) -> dict:
             }
 
         hops = state.get("required_evidence") or [s.query for s in state.get("subqueries", [])]
+        # What the grader is shown, and therefore the only evidence its verdict
+        # may remove. Everything past this window is unjudged, not rejected.
+        shown = evidence[:GRADER_MAX_EVIDENCE]
+        unseen = [e.evidence_id for e in evidence[GRADER_MAX_EVIDENCE:]]
         client = get_client()
         try:
             grade = await client.structured(
                 GRADER_SYSTEM,
-                grader_user(state["question"], hops, evidence[: get_settings().top_k]),
+                grader_user(state["question"], hops, shown),
                 EvidenceGrade,
             )
         except Exception as exc:
@@ -277,7 +324,11 @@ async def grade_evidence(state: AgentState) -> dict:
             }
 
         valid = {e.evidence_id for e in evidence}
-        accepted: list[str] = []
+        # Unjudged evidence is kept. Treating "not named by the grader" as
+        # "rejected" silently discarded whatever fell outside its window: the
+        # agent held 17 documents while the grader saw 6, and the other 11 were
+        # dropped without anything having judged them.
+        accepted: list[str] = list(unseen)
         missing: list[str] = []
         hallucinated: list[str] = []
         for hop in grade.hops:
@@ -291,6 +342,8 @@ async def grade_evidence(state: AgentState) -> dict:
         ev["detail"] = {
             "overall": grade.overall,
             "hops": [h.model_dump() for h in grade.hops],
+            "shown_to_grader": len(shown),
+            "unjudged_kept": len(unseen),
             "accepted": len(set(accepted)),
             "hallucinated_ids": hallucinated,
         }
@@ -304,13 +357,40 @@ async def grade_evidence(state: AgentState) -> dict:
 
 
 async def rewrite_missing(state: AgentState) -> dict:
-    """Re-query only the uncovered hops. Runs at most once."""
+    """Re-query only the uncovered hops, keeping the original constraints.
+
+    The corrective query replaces the wording, not the scope. Building the retry
+    from the query text alone dropped the plan's date and person filters: a
+    question scoped to 1871-1873 came back on the second round with documents
+    from 1874 and 1888, and the grader accepted them.
+    """
     with NodeTimer("rewrite_missing") as ev:
         missing = state.get("missing_hops", [])[: get_settings().budgets.max_subqueries]
-        subs = [
-            SubQuery(hop_id=f"fix{i}", query=q) for i, q in enumerate(missing) if q and q.strip()
-        ]
-        ev["detail"] = {"rewritten": [s.query for s in subs]}
+        original = state.get("subqueries") or []
+        subs = []
+        for i, q in enumerate(missing):
+            if not q or not q.strip():
+                continue
+            # Inherit from the hop being corrected where possible, else the first.
+            src = original[i] if i < len(original) else (original[0] if original else None)
+            subs.append(
+                SubQuery(
+                    hop_id=f"fix{i}",
+                    query=q,
+                    date_from=src.date_from if src else None,
+                    date_to=src.date_to if src else None,
+                    persons=list(src.persons) if src else [],
+                    volume_ids=list(src.volume_ids) if src else [],
+                )
+            )
+        ev["detail"] = {
+            "rewritten": [s.query for s in subs],
+            "constraints_kept": [
+                {"hop": s.hop_id, "dates": [s.date_from, s.date_to], "persons": s.persons}
+                for s in subs
+                if s.date_from or s.date_to or s.persons
+            ],
+        }
         return {
             "subqueries": subs or state.get("subqueries", []),
             "corrections": state.get("corrections", 0) + 1,
@@ -323,7 +403,9 @@ async def synthesize(state: AgentState) -> dict:
     with NodeTimer("synthesize") as ev:
         evidence = state.get("evidence", [])
         accepted = set(state.get("accepted_evidence_ids") or [e.evidence_id for e in evidence])
-        usable = [e for e in evidence if e.evidence_id in accepted][: get_settings().top_k]
+        # No top_k cut here: select_synthesis_evidence budgets the window by
+        # document, and cutting to top_k chunks first is what starved it.
+        usable = [e for e in evidence if e.evidence_id in accepted]
 
         if not usable:
             ev["detail"] = {"reason": "no accepted evidence"}
@@ -336,6 +418,7 @@ async def synthesize(state: AgentState) -> dict:
                 SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN,
                 synth_user(state["question"], usable),
                 AgentAnswer,
+                num_predict=get_settings().ollama_num_predict_synthesis,
             )
         except Exception as exc:
             ev["error"] = f"synthesis failed: {type(exc).__name__}: {exc}"

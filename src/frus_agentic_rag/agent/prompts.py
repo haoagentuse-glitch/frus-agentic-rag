@@ -45,12 +45,21 @@ retrieval query, under 20 words, that would find the missing fact. Do not explai
 your reasoning anywhere in the JSON — only the fields, and keep them terse."""
 
 
-# Qwen3 4B at num_ctx 8192 degrades — and then read-times-out — well before the
-# window is full. These caps keep the grader prompt near 2k tokens.
-GRADER_MAX_EVIDENCE = 6
+# Qwen3 4B degrades on long prompts, so the grader judges a window rather than
+# everything. That is only safe because omission no longer means rejection —
+# see grade_evidence. Widened from 6 once the context budget was measured: the
+# grader prompt sits near 3k of the 8192 window at 10.
+GRADER_MAX_EVIDENCE = 10
 GRADER_EVIDENCE_CHARS = 700
-SYNTH_MAX_EVIDENCE = 8
-SYNTH_EVIDENCE_CHARS = 1100
+# The synthesis window is budgeted in DOCUMENTS, not chunks. Budgeting in chunks
+# let adjacent chunks of one document take several slots each: measured over ten
+# multi-hop questions, 15.8 accepted documents collapsed to 6.4 distinct ones in
+# an 8-chunk window, and 8 of 24 gold documents that retrieval had already found
+# never reached the model. Context is not the constraint — 8 passages fill 28%
+# of the 8192 window and 16 fill 50%.
+SYNTH_MAX_DOCUMENTS = 14
+SYNTH_MAX_EVIDENCE = 18
+SYNTH_EVIDENCE_CHARS = 950
 
 
 def _fmt_evidence(evidence: list[Evidence], max_chars: int = 1200) -> str:
@@ -64,11 +73,16 @@ def _fmt_evidence(evidence: list[Evidence], max_chars: int = 1200) -> str:
     return "\n\n---\n\n".join(lines) if lines else "(no evidence retrieved)"
 
 
-def grader_user(question: str, hops: list[str], evidence: list[Evidence]) -> str:
+def grader_user(question: str, hops: list[str], shown: list[Evidence]) -> str:
+    """`shown` is exactly what the grader is judging; the caller does the slicing.
+
+    Slicing here hid from the caller which evidence had actually been presented,
+    and evidence the grader never saw was then dropped for not being named.
+    """
     hop_list = "\n".join(f"- {h}" for h in hops) or "- (single hop) answer the question"
     return (
         f"QUESTION:\n{question}\n\nHOPS TO COVER:\n{hop_list}\n\n"
-        f"EVIDENCE:\n{_fmt_evidence(evidence[:GRADER_MAX_EVIDENCE], GRADER_EVIDENCE_CHARS)}\n\n"
+        f"EVIDENCE:\n{_fmt_evidence(shown, GRADER_EVIDENCE_CHARS)}\n\n"
         "Return the grade as JSON."
     )
 
@@ -93,8 +107,34 @@ Rules:
 - limitations states what the evidence does not cover."""
 
 
+def select_synthesis_evidence(evidence: list[Evidence]) -> list[Evidence]:
+    """Fill the window with distinct documents first, then depth.
+
+    One pass takes the best chunk of each document in score order, so a
+    multi-document answer can see every document it needs. A second pass spends
+    whatever slots remain on further chunks of documents already included, which
+    is what a single-document question wants.
+    """
+    by_doc: dict[str, list[Evidence]] = {}
+    for e in evidence:
+        by_doc.setdefault(f"{e.volume_id}:{e.document_id}", []).append(e)
+
+    first: list[Evidence] = []
+    rest: list[Evidence] = []
+    for chunks in by_doc.values():
+        chunks.sort(key=lambda e: e.score, reverse=True)
+        first.append(chunks[0])
+        rest.extend(chunks[1:])
+
+    first.sort(key=lambda e: e.score, reverse=True)
+    rest.sort(key=lambda e: e.score, reverse=True)
+    selected = first[:SYNTH_MAX_DOCUMENTS]
+    selected.extend(rest[: max(0, SYNTH_MAX_EVIDENCE - len(selected))])
+    return selected
+
+
 def synth_user(question: str, evidence: list[Evidence]) -> str:
-    body = _fmt_evidence(evidence[:SYNTH_MAX_EVIDENCE], SYNTH_EVIDENCE_CHARS)
+    body = _fmt_evidence(select_synthesis_evidence(evidence), SYNTH_EVIDENCE_CHARS)
     return (
         f"QUESTION:\n{question}\n\nEVIDENCE:\n{body}\n\n"
         "Return the answer as JSON. claims must not be empty: every sentence of "

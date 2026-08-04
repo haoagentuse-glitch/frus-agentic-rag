@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     ollama_temperature: float = 0.0
     ollama_timeout_s: float = 90.0
     ollama_num_predict: int = 1024
+    # Synthesis needs its own ceiling. At 1024 the answer JSON was truncated
+    # mid-sentence on evidence-rich questions and failed validation 25% of the
+    # time; the same call completes in ~1500 tokens with room to spare. The
+    # tight default stays for planner and grader, whose outputs are small and
+    # whose arrays are what the cap is guarding against.
+    ollama_num_predict_synthesis: int = 3072
 
     # --- retrieval ---------------------------------------------------------
     top_k: int = 10

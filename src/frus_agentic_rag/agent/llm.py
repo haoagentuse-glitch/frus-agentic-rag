@@ -42,7 +42,9 @@ class OllamaClient:
             r.raise_for_status()
             return r.json()
 
-    def _payload(self, system: str, user: str, fmt: dict | None) -> dict:
+    def _payload(
+        self, system: str, user: str, fmt: dict | None, num_predict: int | None = None
+    ) -> dict:
         payload: dict = {
             "model": self.model,
             "messages": [
@@ -57,7 +59,7 @@ class OllamaClient:
                 # Backstop for runaway grammar-constrained decoding. The schema
                 # maxItems bounds should make this unreachable; it is here so a
                 # schema change can never cost a 5-minute timeout again.
-                "num_predict": self.num_predict,
+                "num_predict": num_predict or self.num_predict,
             },
         }
         if fmt is not None:
@@ -72,7 +74,9 @@ class OllamaClient:
             obs.record_llm_output(sp, content, data)
         return content
 
-    async def structured(self, system: str, user: str, schema: type[T]) -> T:
+    async def structured(
+        self, system: str, user: str, schema: type[T], num_predict: int | None = None
+    ) -> T:
         """One retry with the validation error fed back, then give up."""
         fmt = schema.model_json_schema()
         last: Exception | None = None
@@ -81,7 +85,7 @@ class OllamaClient:
         for attempt in range(2):
             self.calls += 1
             with obs.llm_span(self.model, system, prompt, schema=schema.__name__) as sp:
-                data = await self._post(self._payload(system, prompt, fmt))
+                data = await self._post(self._payload(system, prompt, fmt, num_predict))
                 raw = data["message"]["content"]
                 obs.record_llm_output(sp, raw, data)
                 try:

@@ -8,6 +8,8 @@ SHA-256 so a later rebuild can prove it read the same bytes.
 from __future__ import annotations
 
 import hashlib
+import re
+from functools import lru_cache
 from pathlib import Path
 
 import pyarrow as pa
@@ -136,3 +138,60 @@ def published_volume_ids(path: Path | None = None) -> list[str]:
     table = load_manifest(path)
     mask = pa.compute.equal(table["status"], "published")
     return table.filter(mask)["volume_id"].to_pylist()
+
+
+# --- volume resolution -----------------------------------------------------
+
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+@lru_cache(maxsize=1)
+def _volume_lookup() -> tuple[frozenset[str], dict[str, str]]:
+    """Valid volume ids, plus a title/alias index pointing at them."""
+    try:
+        rows = load_manifest().to_pylist()
+    except FileNotFoundError:
+        return frozenset(), {}
+    ids = frozenset(r["volume_id"] for r in rows)
+    alias: dict[str, str] = {}
+    for r in rows:
+        for key in (r["title_complete"], r["title_volume"], r["volume_id"]):
+            if key:
+                alias.setdefault(_norm(key), r["volume_id"])
+    return ids, alias
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def resolve_volume_ids(candidates: list[str]) -> tuple[list[str], list[str]]:
+    """Map model-supplied volume references onto real ids.
+
+    Returns (resolved, dropped). The planner does not know FRUS volume ids: over
+    61 planned subqueries, all 32 that carried a `volume_ids` filter carried
+    invented ones such as `FRUS 1872-1873` or `1928-I`. Passed through, each of
+    those filters matched zero rows and silently emptied the retrieval — no
+    error, just no results. Anything that cannot be resolved is dropped rather
+    than queried.
+    """
+    ids, alias = _volume_lookup()
+    if not ids:
+        return list(candidates), []
+    resolved: list[str] = []
+    dropped: list[str] = []
+    for c in candidates:
+        if c in ids:
+            resolved.append(c)
+        elif (hit := alias.get(_norm(c))) is not None:
+            resolved.append(hit)
+        else:
+            dropped.append(c)
+    return sorted(set(resolved)), dropped
+
+
+def valid_iso_date(value: str | None) -> str | None:
+    """ISO dates only. The planner emits things like `187-04-05`."""
+    if not value or not _ISO_DATE.match(value):
+        return None
+    return value

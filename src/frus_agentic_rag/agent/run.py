@@ -119,7 +119,10 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
     zh = language == "zh-TW"
     try:
         draft = await client.structured(
-            SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN, synth_user(question, evidence), AgentAnswer
+            SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN,
+            synth_user(question, evidence),
+            AgentAnswer,
+            num_predict=settings.ollama_num_predict_synthesis,
         )
     except Exception as exc:
         return Answer(

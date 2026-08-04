@@ -62,6 +62,11 @@ def _open():
 def _rows(query, limit: int, where: str | None) -> list[dict]:
     if where:
         query = query.where(where, prefilter=True)
+    # LanceDB warns once per search that a projection omitting `_score` will
+    # stop being auto-extended. `disable_scoring_autoprojection` exists only on
+    # the async builder, and the warning comes from Rust so RUST_LOG does not
+    # reach it. Harmless, and filtered at the shell rather than worked around
+    # here — see README "Running the evaluation".
     return query.select(_COLS).limit(limit).to_list()
 
 

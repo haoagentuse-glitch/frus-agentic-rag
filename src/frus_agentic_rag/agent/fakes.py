@@ -107,7 +107,7 @@ class FakeClient:
     _grade_i: int = 0
     seen: list[str] = field(default_factory=list)
 
-    async def structured(self, system: str, user: str, schema):
+    async def structured(self, system: str, user: str, schema, num_predict=None):
         self.calls += 1
         if schema is QueryPlan:
             self.seen.append("plan")

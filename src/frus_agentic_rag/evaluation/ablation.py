@@ -349,6 +349,22 @@ async def run_ablation(
     if limit:
         cases = cases[:limit]
 
+    # A run recorded while Ollama is unreachable looks exactly like a decision to
+    # abstain: every node catches the connection error, falls back, and the case
+    # is written as `abstain` in about a second. Forty-two such rows were logged
+    # after a WSL restart and would have been read as the system refusing to
+    # answer. Fail loudly instead of recording fiction.
+    from frus_agentic_rag.agent.llm import get_client
+
+    health = await get_client().health()
+    if not health.get("target_present"):
+        raise RuntimeError(
+            f"model {health.get('target')} is not loaded in Ollama at {health.get('host')}; "
+            f"available: {health.get('models')}. Start it before evaluating — a run against "
+            "a dead Ollama records infrastructure failure as abstention."
+        )
+    print(f"ollama: {health['target']} ready at {health['host']}", flush=True)
+
     judge_state = "enabled" if (use_judge and judge_mod.available()) else "unavailable"
 
     # A full bilingual 5-system sweep is 300 sequential Ollama runs — hours on
@@ -406,6 +422,15 @@ async def run_ablation(
                     rows.append(completed[key])
                     continue
                 r = await _run_case(case, system, language, use_judge)
+                # Same failure mode mid-sweep: Ollama dying part-way through.
+                # Claimed LLM calls that took no time did not happen.
+                if r.get("llm_calls", 0) >= 2 and r.get("latency_s", 99) < 3.0:
+                    raise RuntimeError(
+                        f"{system}/{language} {case['case_id']} reported "
+                        f"{r['llm_calls']} LLM calls in {r['latency_s']}s — Ollama is not "
+                        "responding. Stopping so the sweep is not filled with fictitious "
+                        "abstentions; fix Ollama and re-run with --resume."
+                    )
                 r["retriever"] = fingerprint
                 r["candidate_recall"] = floors.get((case["case_id"], language))
                 sys_rows.append(r)
@@ -414,7 +439,8 @@ async def run_ablation(
                     fh.write(json.dumps(r, ensure_ascii=False) + "\n")
                 print(
                     f"[{n}/{total}] [{system}/{language}] {r['case_id']}: {r['outcome']} "
-                    f"recall={r['all_evidence_recall']} {r['latency_s']}s",
+                    f"cand={r.get('candidate_recall')} union={r.get('agent_union_recall')} "
+                    f"cited={r.get('citation_recall')} {r['latency_s']}s",
                     flush=True,
                 )
         per_system[system] = summarise(sys_rows)
