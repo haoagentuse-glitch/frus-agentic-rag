@@ -45,9 +45,11 @@ def get_model(device: str | None = None) -> Any:
         import torch
         from sentence_transformers import CrossEncoder
 
-        kwargs: dict[str, Any] = {}
+        # sentence-transformers 3.x names this `automodel_args` on CrossEncoder,
+        # not `model_kwargs` as on SentenceTransformer.
+        kwargs: dict[str, Any] = {"local_files_only": True}
         if device == "cuda" and settings.embed_fp16:
-            kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
+            kwargs["automodel_args"] = {"torch_dtype": torch.float16}
         try:
             model = CrossEncoder(
                 settings.reranker_model_path,

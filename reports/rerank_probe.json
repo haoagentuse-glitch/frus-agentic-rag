@@ -1,0 +1,29 @@
+{
+  "n_answerable_cases": 30,
+  "candidates_reranked_per_query": 50,
+  "top_k": 10,
+  "device": "cuda",
+  "model": "BAAI/bge-reranker-v2-m3",
+  "document_recall_at_10": {
+    "rrf": {
+      "all": 0.567,
+      "lookup": 1.0,
+      "multihop": 0.3,
+      "correction": 0.0,
+      "correction_matched": 0.8
+    },
+    "rerank": {
+      "all": 0.689,
+      "lookup": 1.0,
+      "multihop": 0.667,
+      "correction": 0.0,
+      "correction_matched": 0.8
+    }
+  },
+  "latency_ms_per_query": {
+    "rrf_fuse": 0,
+    "cross_encoder": 1012
+  },
+  "caveat": "Single run over 30 answerable cases; multihop is 10 of them, so +36.7pp is about eight gold documents. Direction and magnitude are clear, the exact value is not. This measures retrieval only — whether reranking improves final answers depends on the grader, synthesis and citation gate downstream, which only the ablation shows.",
+  "cpu_note": "CPU reranking is not viable: 30 cases had not finished after 10 minutes."
+}
