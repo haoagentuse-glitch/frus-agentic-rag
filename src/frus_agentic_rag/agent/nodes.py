@@ -199,12 +199,15 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             if rejected:
                 rejected_filters.append({"hop": sq.hop_id, **rejected})
 
+            # With several hops the cross-encoder runs once over the merged
+            # union instead, against the question the user actually asked.
+            per_hop_k = top_k if len(subs) == 1 else settings.rerank_candidates
             if route == "timeline":
                 hits = await tb.timeline_search(
-                    sq.query, filters.date_from, filters.date_to, filters, top_k, sq.hop_id
+                    sq.query, filters.date_from, filters.date_to, filters, per_hop_k, sq.hop_id
                 )
             else:
-                hits = await tb.hybrid_search(sq.query, filters, top_k, sq.hop_id)
+                hits = await tb.hybrid_search(sq.query, filters, per_hop_k, sq.hop_id)
 
             # A filter that removes every candidate is worse than no filter: the
             # question is still answerable, the constraint was just wrong.
@@ -224,6 +227,19 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             else:
                 fresh.extend(r)
 
+        merged = _merge(state.get("evidence", []), fresh)
+        reranked = False
+        if len(subs) > 1 and len(merged) > top_k:
+            from frus_agentic_rag.retrieval import rerank as rr
+            from frus_agentic_rag.retrieval.hybrid import rerank_union
+
+            merged = await asyncio.to_thread(
+                rerank_union, state["question"], merged, settings.evidence_after_rerank
+            )
+            # Truncation alone changes the length, so length cannot be the
+            # signal: only a cross-encoder rank means the reordering happened.
+            reranked = rr.available() and any(e.rank_rerank is not None for e in merged)
+
         ev["retrieval_calls"] = len(subs)
         ev["route"] = route
         ev["detail"] = {
@@ -235,9 +251,11 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             "errors": errors,
             "rejected_filters": rejected_filters,
             "relaxed_hops": relaxed,
+            "union_reranked": reranked,
+            "evidence_after_merge": len(merged),
         }
         return {
-            "evidence": _merge(state.get("evidence", []), fresh),
+            "evidence": merged,
             "retrieval_rounds": state.get("retrieval_rounds", 0) + 1,
             "trace": [ev],
         }

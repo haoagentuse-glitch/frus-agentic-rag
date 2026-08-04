@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     reranker_max_length: int = 512
     reranker_max_chars: int = 1800
     rerank_candidates: int = 50
+    # How much survives the rerank. The point of a wide candidate pool is to give
+    # the cross-encoder something to choose from, not to hand 50 passages to the
+    # grader and the synthesiser: carrying the full pool downstream pushed the
+    # synthesis prompt to the edge of the 8192 window and took a query from ~20s
+    # to 60-100s. The synthesis window needs 14 documents, the grader sees 10.
+    evidence_after_rerank: int = 20
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")

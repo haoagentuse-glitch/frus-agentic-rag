@@ -19,12 +19,20 @@ candidates the cheap arms produce rather than replacing them.
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from frus_agentic_rag.config import get_settings
 
 _MODEL: Any = None
 _DISABLED = False
+# Model loading is guarded by a lock. `hybrid_search` runs one thread per hop,
+# and three threads entering an unguarded loader all saw `_MODEL is None` and
+# called `from_pretrained` on the same checkpoint at once. The collision left
+# weights on the meta device, so the subsequent `.to(device)` raised "Cannot
+# copy out of meta tensor" — reproducibly on multi-hop questions, never on
+# single-hop ones, which is what made it look like a model or library problem.
+_LOAD_LOCK = threading.Lock()
 
 
 def available() -> bool:
@@ -52,29 +60,37 @@ def resolve_device(configured: str) -> str:
 def get_model(device: str | None = None) -> Any:
     """Load the cross-encoder, or disable reranking for the rest of the process.
 
-    Reranking is an optional stage over candidates the cheap arms already
-    produced. A missing or half-downloaded model must degrade to RRF order, not
-    take retrieval down with it.
+    Built directly on transformers rather than sentence-transformers'
+    CrossEncoder. That wrapper raised "Cannot copy out of meta tensor" from its
+    own `.to(device)` inside the agent while loading fine in a fresh process,
+    and the same checkpoint loads reliably through AutoModelForSequenceClassification
+    in every configuration tested. Reranking is an optional stage over
+    candidates the cheap arms already produced, so a load failure disables it
+    and falls back to RRF rather than taking retrieval down.
     """
     global _MODEL, _DISABLED
     settings = get_settings()
     device = device or resolve_device(settings.reranker_device)
-    if _MODEL is None or getattr(_MODEL, "_frus_device", None) != device:
-        import torch
-        from sentence_transformers import CrossEncoder
+    if _MODEL is not None and _MODEL.get("device") == device:
+        return _MODEL
 
-        # sentence-transformers 3.x names this `automodel_args` on CrossEncoder,
-        # not `model_kwargs` as on SentenceTransformer.
-        kwargs: dict[str, Any] = {"local_files_only": True}
-        if device == "cuda" and settings.embed_fp16:
-            kwargs["automodel_args"] = {"torch_dtype": torch.float16}
+    with _LOAD_LOCK:
+        # Re-check: another thread may have finished while this one waited.
+        if _DISABLED:
+            return None
+        if _MODEL is not None and _MODEL.get("device") == device:
+            return _MODEL
+        import torch
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
         try:
-            model = CrossEncoder(
-                settings.reranker_model_path,
-                device=device,
-                max_length=settings.reranker_max_length,
-                **kwargs,
+            tok = AutoTokenizer.from_pretrained(settings.reranker_model_path, local_files_only=True)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                settings.reranker_model_path, local_files_only=True
             )
+            model.eval().to(device)
+            if device == "cuda" and settings.embed_fp16:
+                model.half()
         except Exception as exc:
             _DISABLED = True
             print(
@@ -82,9 +98,29 @@ def get_model(device: str | None = None) -> Any:
                 flush=True,
             )
             return None
-        model._frus_device = device  # type: ignore[attr-defined]
-        _MODEL = model
+        _MODEL = {"tok": tok, "model": model, "device": device, "torch": torch}
     return _MODEL
+
+
+def _score(bundle: dict, pairs: list[tuple[str, str]]) -> list[float]:
+    torch = bundle["torch"]
+    tok, model, device = bundle["tok"], bundle["model"], bundle["device"]
+    settings = get_settings()
+    out: list[float] = []
+    with torch.inference_mode():
+        for i in range(0, len(pairs), settings.reranker_batch_size):
+            batch = pairs[i : i + settings.reranker_batch_size]
+            enc = tok(
+                [a for a, _ in batch],
+                [b for _, b in batch],
+                padding=True,
+                truncation=True,
+                max_length=settings.reranker_max_length,
+                return_tensors="pt",
+            ).to(device)
+            logits = model(**enc).logits.view(-1).float()
+            out.extend(logits.tolist())
+    return out
 
 
 def rerank(query: str, rows: list[dict], top_k: int, text_key: str = "text") -> list[dict]:
@@ -98,16 +134,11 @@ def rerank(query: str, rows: list[dict], top_k: int, text_key: str = "text") -> 
     if not available() or len(rows) <= 1 or top_k >= len(rows):
         return rows[:top_k]
 
-    model = get_model()
-    if model is None:
+    bundle = get_model()
+    if bundle is None:
         return rows[:top_k]
     pairs = [(query, r.get(text_key, "")[: settings.reranker_max_chars]) for r in rows]
-    scores = model.predict(
-        pairs,
-        batch_size=settings.reranker_batch_size,
-        show_progress_bar=False,
-        convert_to_numpy=True,
-    )
+    scores = _score(bundle, pairs)
     ordered = sorted(zip(rows, scores, strict=True), key=lambda x: float(x[1]), reverse=True)
     out = []
     for rank, (row, score) in enumerate(ordered[:top_k], start=1):
@@ -125,6 +156,6 @@ def warm() -> dict:
         return {"available": False, "reason": "model failed to load; using RRF order"}
     return {
         "available": True,
-        "device": getattr(m, "_frus_device", "?"),
+        "device": m["device"],
         "max_length": get_settings().reranker_max_length,
     }

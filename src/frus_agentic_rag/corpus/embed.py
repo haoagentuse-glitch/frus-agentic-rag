@@ -8,6 +8,7 @@ into LanceDB second, so a crash between the two is recoverable by re-merging.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -20,13 +21,19 @@ from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
 
 _MODEL: Any = None
+# See retrieval/rerank.py: concurrent hops raced this loader too.
+_LOAD_LOCK = threading.Lock()
 
 
 def get_model(device: str | None = None) -> Any:
     global _MODEL
     settings = get_settings()
     device = device or settings.embed_device
-    if _MODEL is None or getattr(_MODEL, "_frus_device", None) != device:
+    if _MODEL is not None and getattr(_MODEL, "_frus_device", None) == device:
+        return _MODEL
+    with _LOAD_LOCK:
+        if _MODEL is not None and getattr(_MODEL, "_frus_device", None) == device:
+            return _MODEL
         import torch
         from sentence_transformers import SentenceTransformer
 
