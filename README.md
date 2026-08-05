@@ -1,4 +1,4 @@
-# FRUS 策略實驗室——以評估為核心的代理式 RAG（Evaluation-driven Agentic RAG）
+# FRUS Agentic RAG 策略評估
 
 > 在 30 萬份外交史料上，測試哪些 RAG 元件真的值得它增加的成本。
 
