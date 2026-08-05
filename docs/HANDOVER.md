@@ -161,11 +161,88 @@ gold set 裡沒有任何 timeline 題。三類該補的題型：
 
 ## 3. 建議的下一步順序
 
-1. **跑完整的 `score_distribution.py`**（無 `--limit`），決定 margin 與 min-per-hop。
+1. **跑完整的 `score_distribution.py`**（無 `--limit`），並補齊 3.1 的指標。
    便宜、無 LLM、可重複，而且是所有下游決策的前提。
-2. **修 1.1 的 id 抄寫問題**（建議走短序號那條）。這是目前唯一還在丟掉正確答案的缺陷。
-3. 設好門檻後跑一輪完整消融，這時候的延遲數字才第一次乾淨。
-4. 補 1.6 的三類題型，才有辦法驗證多文件合成與拒答行為。
+2. **比較 3.2 的三種篩選策略**，A 為基線。
+3. **修 1.1 的 id 抄寫問題**（建議走短序號那條）。這是目前唯一還在丟掉正確答案的缺陷。
+4. 設好門檻後跑一輪完整消融，這時候的延遲數字才第一次乾淨。
+5. 補 1.6 的三類題型，才有辦法驗證多文件合成與拒答行為。
+
+### 3.1 決定門檻前必須先量的東西
+
+目前只有均值與「保 100% gold 的地板」，不足以定規則。以下為缺口，
+`scripts/score_distribution.py` 需擴充：
+
+| 指標 | 現況 | 為什麼需要 |
+|---|---|---|
+| gold / non-gold 的 P5、P25、P50、P75、P95 | **已有**（`quantiles()`） | 看重疊區有多寬，而非只看均值差 |
+| `recall@1 / @2 / @3 / @5 / @10` | 缺 | 若 recall@5 已接近 recall@10，固定 top-5 就夠，不需要任何自適應規則 |
+| **每題**保留比例的分佈 | 缺（目前只有全體比例） | 全體 27.5% 可能是「多數題留 10%、少數題留 90%」。整體數字會藏住尾巴 |
+| `top_score − gold_score` 的分佈 | 缺 | **這就是 `score_keep_margin` 的分佈本身**，是決定該參數的直接證據 |
+| 最佳 gold 的 rank 分佈 | 缺 | 決定 `score_min_per_hop` 的下界；若 gold 常落在 rank 8，min-3 會殺掉它 |
+| 每個 hop 是否至少留住一份 gold | 缺 | `score_min_per_hop` 唯一要保證的性質。**注意**：目前的分佈腳本走單跳檢索（`hop="main"`），要量這項得先過 planner |
+| 中英文分開的 answer success rate | 上一輪已有（40.7% / 12.0%） | 見 1.1，成因已知 |
+| 過濾前後的 context **token** 數與 synthesis 延遲 | 只有字元數（保留 63–74%）與節點耗時 | 字元不等於 token，中文尤其失真；synthesis 延遲才是 context reduction 的真正回報 |
+
+**優化目標不是把保留比例壓低。** 要同時看四項：
+
+```
+gold recall（不能掉）
++ 最終回答品質（judge correctness）
++ context reduction（token 數）
++ latency reduction（synthesis 節點耗時）
+```
+
+保留比例本身只是手段。一個把保留比例壓到 5% 但 gold recall 掉 10pp 的設定是失敗的，
+而一個保留 40% 卻讓 synthesis 快一倍、正確率不變的設定是成功的。
+
+### 3.2 三種篩選策略，A 是基線
+
+`retrieval/select.py` 已能表達三者，差別只在 config：
+
+| 版本 | 設定 | 說明 |
+|---|---|---|
+| **A. 固定 top-k** | `min_per_hop = max_per_hop = k`，margin/absolute 皆 None | 最單純的基線。**先跑這個** |
+| **B. min-k + relative margin** | `min_per_hop = k`、`keep_margin = m` | 隨題型自動平移，不受 1.2 的尺度問題影響 |
+| **C. min-k + margin + max-k** | B 再加 `max_per_hop` | 加上天花板，擋住「整池都高分」時 context 爆掉 |
+
+預期 C 最穩定，但**不要跳過 A**。若 B 或 C 相對 A 沒有顯著提升 gold recall 或降低 context，
+就直接留 A——簡單問題不值得用複雜規則解，而這個專案已經有過一次為了聰明而失效的階段（見 1.2）。
+
+實作備註：`score_max_per_hop` 已加入 `config.py` 與 `select_evidence`，
+天花板在兩個地板之後套用，所以 `max` 永遠勝過 `min`，設定衝突時不會反而留得更多。
+**此改動尚未跑過 lint / mypy / pytest**（額度用盡時中斷），合併前請先跑一次。
+
+### 3.3 關於重新定義 B0–B3 的提案
+
+有一個提案是把系統重新定義為：B0 基礎檢索、B1 hybrid + cross-encoder rerank、
+B2 加確定性分數篩選、B3 加句子過濾。
+
+**不建議直接套用在 B0–B3 這組名字上。** 理由：現有的 B0–B3 是 SPEC 預登記的
+**agent 圖**消融（規劃分解、grading、糾正迴圈），第 2 節的五條門檻全部以此定義為準。
+改掉語意會讓跨輪次的數字失去可比性，而且會失去量測「規劃分解」的能力——
+那是目前唯一通過的門檻（multi-hop recall +24.2pp）。
+
+建議改為**新增一組獨立的檢索階段消融**（例如 R0–R3），與 B0–B3 並存：
+
+```
+R0：hybrid 檢索，無重排
+R1：+ cross-encoder 重排
+R2：+ 確定性分數篩選
+R3：+ 句子級過濾
+```
+
+這樣兩個問題各自可答：agent 圖值不值得（B 系列），檢索後處理值不值得（R 系列）。
+
+不過該提案有一點是對的且需要處理：**句子過濾目前對所有系統一律套用**
+（我刻意這樣做，讓各系統的檢索保持可比），因此在現有 ablation 中**量不到它的效果**。
+要量它必須跑配對的兩輪，靠 `dev.sh` 的環境變數轉發：
+
+```bash
+FRUS_GPU=1 FRUS_FOCUS_SENTENCES=false ./scripts/dev.sh frus eval
+```
+
+fingerprint 會記為 `hybrid+rerank`（無 `+focus`），與開啟的那輪自動分開，不會被混算。
 
 ---
 

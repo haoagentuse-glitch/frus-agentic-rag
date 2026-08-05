@@ -84,7 +84,12 @@ def select_evidence(evidence: list[Evidence]) -> tuple[list[str], dict[str, Any]
     if not scored:
         record["skipped"] = "no cross-encoder scores"
         return ids, record
-    if settings.score_keep_absolute is None and settings.score_keep_margin is None:
+    record["max_per_hop"] = settings.score_max_per_hop
+    if (
+        settings.score_keep_absolute is None
+        and settings.score_keep_margin is None
+        and settings.score_max_per_hop is None
+    ):
         record["skipped"] = "no threshold configured; run scripts/score_distribution.py"
         record["score_range"] = [
             round(min(e.rerank_score or 0.0 for e in scored), 4),
@@ -108,6 +113,7 @@ def select_evidence(evidence: list[Evidence]) -> tuple[list[str], dict[str, Any]
     for e in scored:
         by_hop.setdefault(e.hop or "main", []).append(e)
     restored: list[str] = []
+    capped: list[str] = []
     for hop, group in by_hop.items():
         group.sort(key=lambda e: e.rerank_score or 0.0, reverse=True)
         held = [e for e in group if e.evidence_id in keep]
@@ -115,9 +121,18 @@ def select_evidence(evidence: list[Evidence]) -> tuple[list[str], dict[str, Any]
             if e.evidence_id not in keep:
                 keep.add(e.evidence_id)
                 restored.append(e.evidence_id)
+        # The ceiling is applied last, after the floors have had their say, so
+        # `max` always wins a conflict with `min` and a misconfigured pair
+        # cannot make the kept set larger than the cap.
+        if settings.score_max_per_hop is not None:
+            surviving = [e for e in group if e.evidence_id in keep]
+            for e in surviving[settings.score_max_per_hop :]:
+                keep.discard(e.evidence_id)
+                capped.append(e.evidence_id)
         record.setdefault("per_hop", {})[hop] = {
             "candidates": len(group),
             "above_floor": len(held),
+            "kept": sum(1 for e in group if e.evidence_id in keep),
         }
 
     record.update(
@@ -127,6 +142,7 @@ def select_evidence(evidence: list[Evidence]) -> tuple[list[str], dict[str, Any]
             "accepted": len(keep),
             "dropped": len(ids) - len(keep),
             "restored_by_min_per_hop": restored,
+            "dropped_by_max_per_hop": capped,
         }
     )
     return [i for i in ids if i in keep], record

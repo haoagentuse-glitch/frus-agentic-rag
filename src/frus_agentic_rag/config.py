@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     score_keep_absolute: float | None = None
     score_keep_margin: float | None = None
     score_min_per_hop: int = 3
+    # Upper bound on what survives, per hop. With min and max set equal and no
+    # margin, selection degenerates to fixed top-k — the baseline any adaptive
+    # rule has to beat before its complexity is worth carrying.
+    score_max_per_hop: int | None = None
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
