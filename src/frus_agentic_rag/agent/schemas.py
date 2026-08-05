@@ -47,7 +47,12 @@ class QueryPlan(BaseModel):
 class HopGrade(BaseModel):
     hop_id: str = ""
     verdict: HopVerdict
-    accepted_evidence_ids: list[str] = Field(default_factory=list, max_length=8)
+    # The grader names what to DROP, not what to keep. Asked for an accept list
+    # it had to enumerate every id it wanted, so anything it forgot to write
+    # down was deleted — and `max_length=8` over a 10-passage window meant two
+    # passages were discarded by the schema alone, whatever they said. Inverted,
+    # omission means "keep", which is the direction a silent failure should go.
+    rejected_evidence_ids: list[str] = Field(default_factory=list, max_length=10)
     # No free-form "missing" field. Given one, the model writes a paragraph of
     # reasoning and blows through num_predict; the corrective query carries the
     # same information in a form the retriever can actually use.

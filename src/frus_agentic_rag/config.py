@@ -101,6 +101,30 @@ class Settings(BaseSettings):
     # synthesis prompt to the edge of the 8192 window and took a query from ~20s
     # to 60-100s. The synthesis window needs 14 documents, the grader sees 10.
     evidence_after_rerank: int = 20
+    # Sentence-level filtering with the same cross-encoder. It rewrites what the
+    # prompts render, not what is retrieved or citable. Off via
+    # FRUS_FOCUS_SENTENCES=false, which is how the paired run measures it.
+    focus_sentences: bool = True
+    focus_max_sentences: int = 4
+    focus_context_sentences: int = 1
+    # Below this a passage is already about as short as trimming would make it.
+    focus_min_chars: int = 400
+    # Ceiling on cross-encoder pairs per call. 20 passages of ~15 sentences is
+    # 300; the cap stops an unusually sentence-dense pool from turning one
+    # rerank-sized cost into several.
+    focus_max_pairs: int = 400
+    # Evidence selection for B2/B3. "score" filters deterministically on the
+    # cross-encoder logit; "llm" restores the grader call, kept only so the two
+    # can be compared on the same gold set.
+    grader_mode: Literal["score", "llm"] = "score"
+    # Deliberately unset. Cross-encoder logits are uncalibrated — they differ by
+    # model, by query language and by question type — so a threshold chosen
+    # before looking at the distribution is a guess. Run
+    # `scripts/score_distribution.py`, read the report, then set these. Until
+    # then selection keeps everything and records what it would have done.
+    score_keep_absolute: float | None = None
+    score_keep_margin: float | None = None
+    score_min_per_hop: int = 3
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")

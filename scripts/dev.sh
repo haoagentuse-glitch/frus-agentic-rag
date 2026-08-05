@@ -18,13 +18,25 @@ fi
 GPU_ARGS=()
 [[ "${FRUS_GPU:-0}" == "1" ]] && GPU_ARGS=(--gpus all)
 
+# Any other FRUS_* the caller exported comes along, so a single setting can be
+# flipped for one run without editing this file — `FRUS_FOCUS_SENTENCES=false
+# ./scripts/dev.sh frus eval` is the paired half of an ablation. Listed first on
+# purpose: docker keeps the last -e for a name, so the container paths below
+# still win and no override can point the run at the wrong index.
+PASSTHROUGH=()
+while IFS='=' read -r name _; do
+  [[ -n "$name" ]] && PASSTHROUGH+=(-e "$name")
+done < <(env | grep -E '^FRUS_' || true)
+
 exec docker run --rm -i "${GPU_ARGS[@]}" \
+  "${PASSTHROUGH[@]}" \
   --network host \
   -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$PWD:/workspace" -w /workspace \
   -v "$HUB:/models/hf-hub:ro" \
   -e PATH="/workspace/.venv/bin:/usr/local/bin:/usr/bin:/bin" \
   -e PYTHONPATH=/workspace/src \
+  -e PYTHONUNBUFFERED=1 \
   -e FRUS_DATA_DIR=/workspace/data \
   -e FRUS_RAW_DIR=/workspace/data/raw/frus/volumes \
   -e FRUS_LANCEDB_URI=/workspace/data/index/lancedb \

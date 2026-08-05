@@ -39,12 +39,18 @@ GRADER_SYSTEM = """You judge whether retrieved FRUS passages cover what a questi
 You are NOT a historian here. Do not add facts. Do not guess. Judge coverage only.
 
 For each hop:
-- supported: the accepted passages state the needed fact directly.
+- supported: the passages state the needed fact directly.
 - partial: related but the specific fact is missing.
 - unsupported: nothing relevant.
 
-accepted_evidence_ids must be copied verbatim from the EVIDENCE ids shown. \
-Never invent an id.
+rejected_evidence_ids: take the EVIDENCE passages one at a time and list the ids \
+of the ones that carry nothing towards this hop — a different country, a \
+different period, or a different subject that merely shares a name or a phrase \
+with the question. The test for each passage is whether deleting it would change \
+the answer; if it would not, reject it. Keep a passage that carries even part of \
+what the hop needs, and keep it when you cannot tell. Copy ids verbatim from the \
+EVIDENCE shown; never invent one. An empty list is permitted, but it asserts \
+that you checked every passage and that all of them contribute.
 
 If a hop is partial or unsupported, give corrective_query: ONE short English \
 retrieval query, under 20 words, that would find the missing fact. Do not explain \
@@ -71,7 +77,8 @@ SYNTH_EVIDENCE_CHARS = 950
 def _fmt_evidence(evidence: list[Evidence], max_chars: int = 1200) -> str:
     lines = []
     for e in evidence:
-        body = e.text[:max_chars]
+        # text_focus is set only when sentence filtering ran; text is the fallback.
+        body = (e.text_focus or e.text)[:max_chars]
         lines.append(
             f"[id: {e.evidence_id}] ({e.volume_id} Doc.{e.doc_number} {e.date_from})\n"
             f"{e.head}\n{body}"

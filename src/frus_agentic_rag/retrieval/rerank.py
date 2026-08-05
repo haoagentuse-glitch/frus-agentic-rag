@@ -147,6 +147,22 @@ def rerank(query: str, rows: list[dict], top_k: int, text_key: str = "text") -> 
     return out
 
 
+def score_pairs(pairs: list[tuple[str, str]]) -> list[float] | None:
+    """Raw relevance scores, for callers that do their own ordering.
+
+    `rerank` reorders whole candidates; sentence filtering needs the scores
+    themselves and keeps its own positional bookkeeping. Returns None rather
+    than zeros when the model is unavailable, so the caller can tell "no model"
+    from "scored badly" and leave its input untouched.
+    """
+    if not available() or not pairs:
+        return None
+    bundle = get_model()
+    if bundle is None:
+        return None
+    return _score(bundle, pairs)
+
+
 def warm() -> dict:
     """Load the model and report where it ended up, for startup checks."""
     if not available():

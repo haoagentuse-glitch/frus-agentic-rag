@@ -126,13 +126,15 @@ class FakeClient:
             verdict = self.grade_sequence[min(self._grade_i, len(self.grade_sequence) - 1)]
             self._grade_i += 1
             has_evidence = "no evidence retrieved" not in user
-            ids = ["frus1969-76v17:d1:0"] if (verdict == "supported" and has_evidence) else []
+            # Inverted grader: an unsupported hop rejects what it saw, a
+            # supported one rejects nothing.
+            ids = [] if (verdict == "supported" or not has_evidence) else ["frus1969-76v17:d1:0"]
             return EvidenceGrade(
                 hops=[
                     HopGrade(
                         hop_id="h0",
                         verdict=verdict,  # type: ignore[arg-type]
-                        accepted_evidence_ids=ids,
+                        rejected_evidence_ids=ids,
                         corrective_query="" if verdict == "supported" else "corrected query",
                     )
                 ],

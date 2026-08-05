@@ -215,7 +215,9 @@ def hybrid_search_sync(
         return [
             #  is absent when the cross-encoder declined or is
             # disabled; the fallback is RRF order, not a crash.
-            by_id[r["evidence_id"]].model_copy(update={"rank_rerank": r.get("_rerank")})
+            by_id[r["evidence_id"]].model_copy(
+                update={"rank_rerank": r.get("_rerank"), "rerank_score": r.get("_rerank_score")}
+            )
             for r in scored
         ]
     return rrf_fuse([lexical, heads, dense], settings.rrf_k, top_k, hop=hop)
@@ -248,5 +250,8 @@ def rerank_union(question: str, evidence: list[Evidence], top_k: int) -> list[Ev
     by_id = {e.evidence_id: e for e in evidence}
     scored = rr.rerank(question, [e.model_dump() for e in evidence], top_k)
     return [
-        by_id[r["evidence_id"]].model_copy(update={"rank_rerank": r.get("_rerank")}) for r in scored
+        by_id[r["evidence_id"]].model_copy(
+            update={"rank_rerank": r.get("_rerank"), "rerank_score": r.get("_rerank_score")}
+        )
+        for r in scored
     ]

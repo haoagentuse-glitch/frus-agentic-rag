@@ -20,6 +20,20 @@ from typing import Any
 _TRACER: Any = None
 _ENABLED: bool | None = None
 
+# How much of each payload is attached to a span. These were 12000 / 2000 / 20,
+# which put roughly 200KB on the wire per question: four LLM calls carrying
+# prompt and completion in full, plus twenty passages per retrieval. Phoenix's
+# ingest could not keep up and its exporter began timing out at ten seconds a
+# batch, several times a run — one B3 question took 789s traced and 42s with
+# tracing off. The trace is for reading, not for storing the corpus a second
+# time, so the defaults now keep the shape of every payload and the beginning of
+# its content. Raise them by environment variable when a specific prompt has to
+# be read back in full.
+_LLM_CHARS = int(os.getenv("PHOENIX_MAX_LLM_CHARS", "4000"))
+_DOC_CHARS = int(os.getenv("PHOENIX_MAX_DOC_CHARS", "500"))
+_MAX_DOCS = int(os.getenv("PHOENIX_MAX_DOCUMENTS", "5"))
+_JSON_CHARS = int(os.getenv("PHOENIX_MAX_JSON_CHARS", "2000"))
+
 
 def _truthy(v: str | None) -> bool:
     return (v or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -74,7 +88,7 @@ def _set(span: Any, key: str, value: Any) -> None:
     if isinstance(value, (str, bool, int, float)):
         span.set_attribute(key, value)
     else:
-        span.set_attribute(key, json.dumps(value, ensure_ascii=False, default=str)[:8000])
+        span.set_attribute(key, json.dumps(value, ensure_ascii=False, default=str)[:_JSON_CHARS])
 
 
 @contextmanager
@@ -136,8 +150,8 @@ def llm_span(model: str, system: str, user: str, schema: str | None = None) -> I
         for i, (role, content) in enumerate([("system", system), ("user", user)]):
             prefix = f"{SpanAttributes.LLM_INPUT_MESSAGES}.{i}"
             sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_ROLE}", role)
-            sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_CONTENT}", content[:12000])
-        _set(sp, SpanAttributes.INPUT_VALUE, user[:12000])
+            sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_CONTENT}", content[:_LLM_CHARS])
+        _set(sp, SpanAttributes.INPUT_VALUE, user[:_LLM_CHARS])
         if schema:
             _set(sp, SpanAttributes.LLM_INVOCATION_PARAMETERS, {"format": schema})
         try:
@@ -154,8 +168,8 @@ def record_llm_output(sp: Any, content: str, usage: dict | None = None) -> None:
 
     prefix = f"{SpanAttributes.LLM_OUTPUT_MESSAGES}.0"
     sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_ROLE}", "assistant")
-    sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_CONTENT}", content[:12000])
-    _set(sp, SpanAttributes.OUTPUT_VALUE, content[:12000])
+    sp.set_attribute(f"{prefix}.{MessageAttributes.MESSAGE_CONTENT}", content[:_LLM_CHARS])
+    _set(sp, SpanAttributes.OUTPUT_VALUE, content[:_LLM_CHARS])
     if usage:
         if (v := usage.get("prompt_eval_count")) is not None:
             sp.set_attribute(SpanAttributes.LLM_TOKEN_COUNT_PROMPT, int(v))
@@ -193,10 +207,10 @@ def record_documents(sp: Any, evidence: list) -> None:
         return
     from openinference.semconv.trace import DocumentAttributes, SpanAttributes
 
-    for i, e in enumerate(evidence[:20]):
+    for i, e in enumerate(evidence[:_MAX_DOCS]):
         prefix = f"{SpanAttributes.RETRIEVAL_DOCUMENTS}.{i}"
         sp.set_attribute(f"{prefix}.{DocumentAttributes.DOCUMENT_ID}", e.evidence_id)
-        sp.set_attribute(f"{prefix}.{DocumentAttributes.DOCUMENT_CONTENT}", e.text[:2000])
+        sp.set_attribute(f"{prefix}.{DocumentAttributes.DOCUMENT_CONTENT}", e.text[:_DOC_CHARS])
         sp.set_attribute(f"{prefix}.{DocumentAttributes.DOCUMENT_SCORE}", float(e.score))
         sp.set_attribute(
             f"{prefix}.{DocumentAttributes.DOCUMENT_METADATA}",

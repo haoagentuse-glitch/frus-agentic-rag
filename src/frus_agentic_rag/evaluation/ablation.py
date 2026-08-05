@@ -335,6 +335,15 @@ def retriever_fingerprint() -> dict:
     # claiming "+rerank" over RRF results is exactly the mixing this guards.
     if rr.warm().get("available"):
         mode = f"{mode}+rerank"
+        # Sentence filtering changes the text every prompt sees, so it splits
+        # the runs the same way reranking does and belongs in the same key.
+        # Asks whether it will run, not whether it is configured: on CPU it
+        # disables itself, and a fingerprint claiming "+focus" over runs that
+        # never trimmed anything is exactly the mixing this guards against.
+        from frus_agentic_rag.retrieval.focus import focus_active
+
+        if focus_active()[0]:
+            mode = f"{mode}+focus"
     return {"rows": rows, "embedded": embedded, "mode": mode}
 
 
@@ -400,11 +409,22 @@ async def run_ablation(
     completed, discarded = _load_completed(runs_path, fingerprint) if resume else ({}, 0)
     if not resume and runs_path.exists():
         runs_path.unlink()
+    from frus_agentic_rag.retrieval import rerank as rr
+    from frus_agentic_rag.retrieval.focus import focus_active
+
+    active, why = focus_active()
     print(
         f"retriever: {fingerprint['mode']} "
-        f"({fingerprint['embedded']}/{fingerprint['rows']} chunks embedded)",
+        f"({fingerprint['embedded']}/{fingerprint['rows']} chunks embedded)\n"
+        f"cross-encoder: {rr.warm()}\n"
+        f"sentence focus: {'on' if active else f'off ({why})'}",
         flush=True,
     )
+    # A CPU cross-encoder is a 60x penalty per rerank, and the usual cause is a
+    # missing --gpus on the container rather than a machine without one. Cheaper
+    # to say so now than to read it off the latency column six hours later.
+    if rr.warm().get("device") == "cpu":
+        print("  WARNING: cross-encoder on CPU. Set FRUS_GPU=1 unless intended.", flush=True)
     if discarded:
         print(
             f"discarding {discarded} checkpointed runs from a different retriever mode; "

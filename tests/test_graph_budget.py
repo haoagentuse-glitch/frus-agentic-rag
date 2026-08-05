@@ -10,6 +10,21 @@ from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.retrieval import tools
 
 
+@pytest.fixture(autouse=True)
+def _llm_grader(monkeypatch):
+    """These cases exercise the LLM grader's verdicts, so they pin that mode.
+
+    The default is deterministic score filtering, which has no verdict to fake:
+    with no threshold configured it accepts everything, so the unsupported path
+    here would never fire. Both modes are wired into the same node, and this
+    file is the one that still covers the LLM one.
+    """
+    monkeypatch.setenv("FRUS_GRADER_MODE", "llm")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 @pytest.fixture
 def wired():
     """Install fakes and guarantee they are removed even on failure."""

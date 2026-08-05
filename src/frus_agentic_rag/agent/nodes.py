@@ -29,6 +29,7 @@ from frus_agentic_rag.agent.schemas import (
 from frus_agentic_rag.agent.state import AgentState, NodeTimer
 from frus_agentic_rag.config import get_settings
 from frus_agentic_rag.models import Claim, SearchFilters
+from frus_agentic_rag.retrieval.select import score_rows
 from frus_agentic_rag.retrieval.tools import get_toolbox
 
 _CJK = re.compile(r"[一-鿿]")
@@ -240,6 +241,13 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             # signal: only a cross-encoder rank means the reordering happened.
             reranked = rr.available() and any(e.rank_rerank is not None for e in merged)
 
+        # After ordering, before anything reads the text. The grader's 700-char
+        # window and the synthesiser's 950 then spend their budget on the
+        # sentences that matter rather than on whatever opened the passage.
+        from frus_agentic_rag.retrieval.focus import focus_evidence
+
+        merged, focus_stats = await asyncio.to_thread(focus_evidence, state["question"], merged)
+
         ev["retrieval_calls"] = len(subs)
         ev["route"] = route
         ev["detail"] = {
@@ -253,6 +261,7 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             "relaxed_hops": relaxed,
             "union_reranked": reranked,
             "evidence_after_merge": len(merged),
+            "sentence_focus": focus_stats,
         }
         return {
             "evidence": merged,
@@ -316,6 +325,27 @@ async def grade_evidence(state: AgentState) -> dict:
                 "trace": [ev],
             }
 
+        if get_settings().grader_mode == "score":
+            # No LLM call. The cross-encoder has already read every passage
+            # against the query; thresholding that score is the same judgement
+            # without a generation step that can misname an id or run out of
+            # window. Costs nothing: the scores are a by-product of reranking.
+            from frus_agentic_rag.retrieval.select import missing_hops, select_evidence
+
+            accepted_ids, record = select_evidence(evidence)
+            gaps = missing_hops(evidence, state.get("subqueries", []))
+            ev["detail"] = {
+                **record,
+                "overall": "partial" if gaps else "supported",
+                "scores": score_rows(evidence),
+            }
+            return {
+                "hop_grades": [],
+                "accepted_evidence_ids": accepted_ids,
+                "missing_hops": gaps,
+                "trace": [ev],
+            }
+
         hops = state.get("required_evidence") or [s.query for s in state.get("subqueries", [])]
         # What the grader is shown, and therefore the only evidence its verdict
         # may remove. Everything past this window is unjudged, not rejected.
@@ -329,12 +359,13 @@ async def grade_evidence(state: AgentState) -> dict:
                 EvidenceGrade,
             )
         except Exception as exc:
-            # A failed grader must not fabricate support; treat as partial and
-            # let the retrieval-round budget end the run.
+            # A failed grader judged nothing, so it may remove nothing. Keeping
+            # the top five was a quiet narrowing that looked like a judgement:
+            # the run then abstained on a citation the grader never rejected.
             ev["error"] = f"grader fallback: {type(exc).__name__}: {exc}"
-            ev["detail"] = {"overall": "partial", "grader": "fallback accept-top-k"}
+            ev["detail"] = {"overall": "partial", "grader": "fallback keep-all"}
             return {
-                "accepted_evidence_ids": [e.evidence_id for e in evidence[:5]],
+                "accepted_evidence_ids": [e.evidence_id for e in evidence],
                 "hop_grades": [HopGrade(hop_id="all", verdict="partial")],
                 "missing_hops": [],
                 "llm_calls": state.get("llm_calls", 0) + 1,
@@ -342,19 +373,27 @@ async def grade_evidence(state: AgentState) -> dict:
             }
 
         valid = {e.evidence_id for e in evidence}
+        shown_ids = [e.evidence_id for e in shown]
+        missing: list[str] = []
+        hallucinated: list[str] = []
+        # A passage is dropped only when EVERY hop rejected it. The accept-list
+        # version took the union of what the hops kept, so the dual is the
+        # intersection of what they reject: on a multi-hop question a passage
+        # that answers hop B is off-topic for hop A, and letting hop A alone
+        # delete it is how the plan's own evidence disappeared.
+        rejections: list[set[str]] = []
+        for hop in grade.hops:
+            hallucinated.extend(i for i in hop.rejected_evidence_ids if i not in valid)
+            rejections.append({i for i in hop.rejected_evidence_ids if i in valid})
+            if hop.verdict != "supported":
+                missing.append(hop.corrective_query or hop.hop_id)
+        rejected = set.intersection(*rejections) if rejections else set()
+
         # Unjudged evidence is kept. Treating "not named by the grader" as
         # "rejected" silently discarded whatever fell outside its window: the
         # agent held 17 documents while the grader saw 6, and the other 11 were
         # dropped without anything having judged them.
-        accepted: list[str] = list(unseen)
-        missing: list[str] = []
-        hallucinated: list[str] = []
-        for hop in grade.hops:
-            good = [i for i in hop.accepted_evidence_ids if i in valid]
-            hallucinated.extend(i for i in hop.accepted_evidence_ids if i not in valid)
-            accepted.extend(good)
-            if hop.verdict != "supported":
-                missing.append(hop.corrective_query or hop.hop_id)
+        accepted: list[str] = [i for i in shown_ids if i not in rejected] + list(unseen)
 
         ev["llm_calls"] = 1
         ev["detail"] = {
@@ -362,6 +401,10 @@ async def grade_evidence(state: AgentState) -> dict:
             "hops": [h.model_dump() for h in grade.hops],
             "shown_to_grader": len(shown),
             "unjudged_kept": len(unseen),
+            "rejected_by_all_hops": sorted(rejected),
+            "rejected_by_some_hop": sorted(set().union(*rejections) - rejected)
+            if rejections
+            else [],
             "accepted": len(set(accepted)),
             "hallucinated_ids": hallucinated,
         }

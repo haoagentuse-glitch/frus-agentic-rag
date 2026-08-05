@@ -94,11 +94,20 @@ class Evidence(BaseModel):
     date_from: str = ""
     date_to: str = ""
     text: str
+    # The question-relevant sentences of `text`, when sentence filtering ran.
+    # A separate field on purpose: prompts render this, everything else — the
+    # citation gate, the API response, the evaluation — still sees the passage
+    # as it was retrieved, so trimming can never change what a citation means.
+    text_focus: str = ""
     score: float = 0.0
     rank_bm25: int | None = None
     rank_head: int | None = None
     rank_dense: int | None = None
     rank_rerank: int | None = None
+    # Raw cross-encoder logit. None means no cross-encoder saw this passage, and
+    # score-based filtering must then keep everything rather than treat a
+    # missing score as a low one.
+    rerank_score: float | None = None
     hop: str = ""  # which subquery surfaced it
 
     @property

@@ -116,6 +116,15 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
             retrieval_calls=1,
         )
 
+    # The baseline gets the same evidence text the graph gets. Sentence
+    # filtering is a retrieval-side stage, and letting it apply to only one arm
+    # of the ablation would make the comparison about the retriever again.
+    import asyncio
+
+    from frus_agentic_rag.retrieval.focus import focus_evidence
+
+    evidence, _ = await asyncio.to_thread(focus_evidence, question, evidence)
+
     zh = language == "zh-TW"
     try:
         draft = await client.structured(
