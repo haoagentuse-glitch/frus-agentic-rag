@@ -5,7 +5,7 @@
       "outcome": "answer",
       "expected": "answer",
       "ok": true,
-      "llm_calls": 3,
+      "llm_calls": 2,
       "retrieval_rounds": 1,
       "tool_calls": 1,
       "nodes": [
@@ -25,7 +25,7 @@
       "outcome": "answer",
       "expected": "answer",
       "ok": true,
-      "llm_calls": 3,
+      "llm_calls": 2,
       "retrieval_rounds": 1,
       "tool_calls": 3,
       "nodes": [
@@ -45,7 +45,7 @@
       "outcome": "answer",
       "expected": "answer",
       "ok": true,
-      "llm_calls": 3,
+      "llm_calls": 2,
       "retrieval_rounds": 2,
       "tool_calls": 2,
       "nodes": [
@@ -68,14 +68,11 @@
       "outcome": "answer",
       "expected": "answer",
       "ok": true,
-      "llm_calls": 4,
-      "retrieval_rounds": 2,
-      "tool_calls": 2,
+      "llm_calls": 2,
+      "retrieval_rounds": 1,
+      "tool_calls": 1,
       "nodes": [
         "plan_query",
-        "dispatch_retrieval",
-        "grade_evidence",
-        "rewrite_missing",
         "dispatch_retrieval",
         "grade_evidence",
         "synthesize",
@@ -88,29 +85,27 @@
     },
     {
       "path": "unanswerable",
-      "outcome": "abstain",
+      "outcome": "answer",
       "expected": "abstain",
-      "ok": true,
-      "llm_calls": 3,
-      "retrieval_rounds": 2,
-      "tool_calls": 2,
+      "ok": false,
+      "llm_calls": 2,
+      "retrieval_rounds": 1,
+      "tool_calls": 1,
       "nodes": [
         "plan_query",
         "dispatch_retrieval",
         "grade_evidence",
-        "rewrite_missing",
-        "dispatch_retrieval",
-        "grade_evidence",
-        "abstain"
+        "synthesize",
+        "validate_citations"
       ],
       "within_llm_budget": true,
       "within_retrieval_budget": true,
-      "citations": 0,
-      "abstain_reason": "corrected query"
+      "citations": 1,
+      "abstain_reason": ""
     }
   ],
   "all_terminated": true,
-  "all_expected_outcome": true,
+  "all_expected_outcome": false,
   "all_within_budget": true,
-  "pass": true
+  "pass": false
 }

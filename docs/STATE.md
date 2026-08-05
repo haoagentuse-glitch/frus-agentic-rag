@@ -1,3 +1,3 @@
-now: 全量語料 552/552 卷、723,557 chunks 已建 BM25 並載入 LanceDB；LangGraph B0–B3 圖、確定性 citation gate、Phoenix 追蹤、FastAPI (:8010) 與 Streamlit trace UI (:8511) 皆實測可用；ruff/mypy/40 tests 全綠；目錄已重整為 corpus/retrieval/agent/evaluation 四個套件。
-next: 使用者手動啟動全量 dense embedding（實測 32.4 chunks/s、ETA 6.2 小時）；完成後跑乾淨的 B0–B3 雙語 ablation 與 route stability，再用實測數字更新 README。
-blocked: agentic 品質增益尚無數字，README 明文不宣稱提升；dense 未建前所有檢索都是 BM25 單臂，先前 75 筆 ablation 結果因此作廢（retriever fingerprint 會自動丟棄）；gold cases 為機器草擬未經史學覆核，只能當回歸訊號。
+now: 全量 FRUS 552/552 卷、723,557 chunks 的 BM25/BGE-M3 索引與 B0–B3 graph 已完成；v1 350-run ablation 已分離 candidate/union/accepted/citation recall；README 已改為 evaluation-driven 求職敘事；ruff、mypy、51 tests 通過，但 graph-smoke 的 unanswerable path 仍錯誤作答。
+next: 跑完整 score distribution，比較 fixed top-k／relative margin selector；測短序號 citation protocol；以對等 retrieval budget 重跑 B0 vs B1，另跑 R0–R3 retrieval-stage ablation，最後取得乾淨 latency。
+blocked: deterministic selector 門檻未校準，使 B2/B3 correction 尚未有效啟動；gold cases 未經史學覆核且缺 timeline／真正 vocabulary mismatch；v1 latency 受 Phoenix exporter 汙染不可引用。

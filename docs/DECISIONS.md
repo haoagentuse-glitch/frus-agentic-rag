@@ -1,5 +1,7 @@
 # Decisions
 
+- 2026-08-05｜README 將專案定位為 evaluation-driven RAG strategy lab；B0–B3 固定用於 Agent graph 消融，另以 R0–R3 評估 retrieval post-processing，不宣稱最複雜 graph 已勝出｜v1 顯示 B1 multi-hop union recall 較 B0 高 24.2pp，但檢索預算不等；B2/B3 的下游節點未增加召回且 selector、citation、latency 仍有未解問題｜若 budget-matched v2 證明 B3 在品質、安全與延遲門檻上均勝出，再把 README 主敘事改為已驗證的產品配置。
+
 - 2026-08-02｜履歷維持兩頁骨架，第一頁以 EventSignal 與 SpiderForge 為主，第二頁補資料研究與設計／製程證據｜官方履歷指南均要求職缺對位、個人責任與可驗證成果；本人的差異化在工程交付與設計訓練的組合｜若 TDRI 證實職務主要是使用者研究或供應商管理，則提高研究與協作經歷比重。
 - 2026-08-02｜履歷 bullet 省略「我／我們」，第一人稱視角改由本人責任與動作動詞呈現｜Harvard、MIT 履歷指南均不建議在 bullet 使用人稱代名詞，且現稿重複「我」會產生 AI 自傳感｜若投遞的是另附自傳或求職信，該文件可恢復自然的第一人稱敘事。
 - 2026-08-02｜未驗證數字保留為內部待補標記，不直接當成正式成果｜4 萬篇、13 個來源、生成時間與研究責任範圍尚缺統計或交付證據｜取得 log、來源清單、測試或報告分工後可改為完成式。
