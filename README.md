@@ -119,6 +119,17 @@ flowchart TD
 | B2 | 0.792 | 0.975 | 0.444 | 3.20 |
 | B3 | 0.792 | 0.975 | 0.458 | 3.26 |
 
+### v1 reproducibility anchors
+
+| Artifact | Pinned value |
+|---|---|
+| Agent/retrieval code and prompts | `66a03d2cc93c6e83ff4288dcf7d315a608187ff5` |
+| FRUS source snapshot | `4b4c402f0cce25144ded2198ba9566b6c37c7c49` |
+| Evaluation set | `eval/gold_cases.jsonl`, SHA-256 `d0bc30bf0a819448a924b2d8ee0cbf31174d83092c7ca0d1e9943bfab4e57102` |
+| Generator | `qwen3:4b-instruct` via Ollama；temperature `0.0` |
+| Auxiliary judge | `gemini-3.5-flash-lite`；只作探索性分析，不作唯一品質證據 |
+| Full parameters and raw results | `reports/v1-chunk-grader/agent_ablation.json`、`ablation_runs.jsonl` |
+
 這輪結果支持三個暫時結論：
 
 - **VERIFIED — Planning 找到更多 multi-hop gold documents。** B1 的 multi-hop union recall 比 B0 高 24.2pp。
@@ -127,7 +138,7 @@ flowchart TD
 
 舊報告中的 p95 latency 不採用。Phoenix 曾將過大的 span payload 傳到 exporter，單次 timeout 被算入回答時間；payload 已縮小，但必須在乾淨條件下重跑後才能報告延遲。
 
-完整原始輸出保留於 `reports/v1-chunk-grader/`，目前摘要位於 `reports/agent_ablation.json`。
+完整原始輸出與摘要均保留於 `reports/v1-chunk-grader/`。
 
 ## 失敗實驗如何改變設計
 
