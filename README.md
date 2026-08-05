@@ -37,7 +37,43 @@ BGE-M3 全量向量化實測 **32.4 chunks/s**（fp16、batch 16），峰值視�
 
 預登記門檻為一致性 ≥ 0.80，未達則退回規則式 router。實測值為 0.80，達到門檻；規則式 router 在同一組測試上的一致性為 0.40、準確率 0.80，兩項均低於 LLM router。planner 中位延遲 3.2 秒。
 
-agentic 相對 2-step baseline 的品質增益尚未量測。B0–B3 的雙語 ablation 執行中；在 `reports/agent_ablation.json` 產出之前，本文件不就此提出任何主張。
+### B0–B3 雙語 ablation（350 runs，已完成一輪）
+
+35 個 gold case × 中英雙語 × 5 個系統。判定依預登記門檻，五條通過一條。
+
+| 門檻 | 判定 |
+|---|---|
+| 1 multi-hop 檢索召回 +10pp | **通過**，+24.2pp（0.733 → 0.975）；但檢索預算不對等（B3 3.26 次對 B0 1.0），報告標記 `budget_confounded: true`，且同一組題的正確率下降 7.1pp |
+| 2 路由 macro-F1 ≥ 0.80 | **未通過**，0.4477 |
+| 3 unanswerable 不得誤答 | **未通過**，2 筆誤答 |
+| 4 引用有效性 | 引用精確率 0.5456、claim 覆蓋率 1.00 |
+| 5 p95 延遲 | **數據作廢**，見下 |
+
+分階段召回顯示規劃分解有效而下游抵銷了它：multi-hop 檢索召回 0.733 → 0.975，
+但經過 grader 後的接受率由 0.792 降至 0.650，正確率隨節點增加而遞減
+（0.414 → 0.386 → 0.343）。配對比較中 B1、B2、B3 對 baseline 各為 +6.4pp
+（勝 8、敗 1、平 51），三者檢索完全相同，差異全在下游。就本輪數據，**B1 為最佳配置**。
+
+可回答題中有 79/300 拒答，其中 56 筆已檢索到 gold 文件。成因見
+[docs/HANDOVER.md](docs/HANDOVER.md) 第 1.1 節，尚未修復。
+
+**門檻 5 的延遲數字不可引用。** 追蹤 span 的 payload 過大（每題約 200KB），
+Phoenix 的 exporter 每批逾時 10 秒：同一題 B3 在追蹤開啟時為 789 秒、關閉時為 42 秒。
+payload 上限已降至十分之一，但本輪的延遲欄位包含此開銷，須待下一輪重新量測。
+本輪原始結果保留於 `reports/v1-chunk-grader/`。
+
+### 證據篩選改為確定性
+
+本輪之後，B2/B3 的 LLM grader 已移除，改以 cross-encoder 分數過濾
+（`retrieval/select.py`），LLM 呼叫上限因此由 4 降為 3。移除理由為該階段在兩個方向上
+皆未依證據品質作出判斷：要求其點名保留時，受自身 schema 上限所限，
+在十份的視窗中最多接受八份，實測移除 40% 的文件與其中 15 份 gold；
+反轉為點名拒絕後，於所有測試執行中拒絕數均為零。
+
+門檻參數目前未設定，因為 cross-encoder 的 logit 未經校準，且實測分佈顯示其尺度隨題型移動：
+gold 文件在 lookup 題上的均值為 +3.16，在 multihop 題上為 −0.89。
+以 lookup 校準的絕對門檻會清除 multihop 的全部 gold。
+在 `scripts/score_distribution.py` 於完整 gold set 上執行之前，此階段保留全部證據並記錄其本應作出的決定。
 
 ---
 
@@ -65,9 +101,9 @@ flowchart LR
 ```mermaid
 flowchart TD
     S(["問題"]) --> P["plan_query<br/>路由 + 分解"]
-    P -->|需檢索| R["dispatch_retrieval<br/>BM25 + BGE-M3 → RRF"]
+    P -->|需檢索| R["dispatch_retrieval<br/>BM25 + head + BGE-M3 → RRF<br/>→ cross-encoder 重排<br/>→ 句子級過濾"]
     P -->|問候或用法| Y["synthesize"]
-    R --> G["grade_evidence<br/>逐 hop 判定覆蓋"]
+    R --> G["grade_evidence<br/>cross-encoder 分數門檻<br/>不呼叫模型"]
     G -->|supported| Y
     G -->|不足，預算未盡| W["rewrite_missing<br/>只重寫缺的 hop"]
     G -->|預算用盡且無可用證據| X["abstain"]
@@ -78,7 +114,16 @@ flowchart TD
     X --> Z(["拒答"])
 ```
 
-預算上限實作於條件邊，而非依賴 recursion limit：最多 3 個 subquery、2 輪檢索、1 次修正、4 次 LLM 呼叫。`frus graph-smoke` 以可注入的假工具驗證五條路徑，全部在上限內終止。
+檢索之後有兩個確定性階段，均不呼叫生成模型。cross-encoder 重排解決的是相似度與相關性的差異：
+BM25 與 BGE-M3 皆獨立編碼查詢與段落後再比較，因此主題正確但未回答問題的段落與真正回答的段落得分相同。
+每跳取 50 份候選可使 91.7% 的 gold 文件進入候選池，而 RRF 前 14 名僅承載 37.5%，
+差距全部來自排序。句子級過濾接著以同一個 cross-encoder 在句子粒度上評分，
+只重寫 prompt 呈現的文字（保留 63–74%），不更動檢索結果與可引用單位；
+FRUS 文書照應密集，故每個保留的句子連同前後各一句一併保留。兩者在 GPU 上合計約 2–4 秒，
+在 CPU 上句子過濾會自動停用並於 trace 記錄原因。
+
+預算上限實作於條件邊，而非依賴 recursion limit：最多 3 個 subquery、2 輪檢索、1 次修正、
+3 次 LLM 呼叫（grader 移除前為 4 次）。`frus graph-smoke` 以可注入的假工具驗證五條路徑，全部在上限內終止。
 
 | 層 | 工具 | 用途 |
 |---|---|---|
@@ -210,12 +255,25 @@ docker compose up -d ollama && ./scripts/dev.sh frus index --ann
 ```
 
 ```bash
-./scripts/dev.sh frus gold-build && ./scripts/dev.sh frus eval --systems B0-2step,B0,B1,B2,B3
+./scripts/dev.sh frus gold-build && FRUS_GPU=1 ./scripts/dev.sh frus eval --systems B0-2step,B0,B1,B2,B3
+```
+
+```bash
+FRUS_GPU=1 ./scripts/dev.sh python scripts/score_distribution.py
 ```
 
 ```bash
 ./scripts/dev.sh frus route-stability
 ```
+
+**`FRUS_GPU=1` 不可省略。** 未設定時容器不掛載 GPU，cross-encoder 落至 CPU，
+同一批 50 對的耗時由 1.0 秒變為 62.6 秒；句子過濾的 pair 數為重排的 6–15 倍，
+故其在 CPU 上會自行停用並於 trace 記錄原因。`frus eval` 於開跑前列印實際裝置與
+`sentence focus` 狀態，該三行為執行前的檢查點。
+
+`scripts/score_distribution.py` 僅執行檢索，不呼叫生成模型，數十秒完成，
+輸出每份候選段落的 cross-encoder 原始分數、排名與 gold 標記，
+按語言與題型分層，為設定 `FRUS_SCORE_KEEP_ABSOLUTE` 與 `FRUS_SCORE_KEEP_MARGIN` 的依據。
 
 ablation 逐筆 checkpoint 至 `reports/ablation_runs.jsonl`，支援 `--resume`。每筆記錄執行當時的檢索器模式；resume 時模式不符者予以丟棄並重跑，以避免 BM25-only 與 hybrid 的結果被合併計算。
 
@@ -266,7 +324,10 @@ src/frus_agentic_rag/
     index.py      Parquet → LanceDB → BM25 / ANN
     embed.py      BGE-M3 向量化，逐卷 checkpoint
   retrieval/
-    hybrid.py     BM25 + dense + 加權 RRF
+    hybrid.py     BM25 + head + dense + 加權 RRF
+    rerank.py     cross-encoder 重排，載入上鎖，CPU/GPU 自動判定
+    focus.py      句子級過濾，只改 prompt 呈現的文字
+    select.py     以 cross-encoder 分數確定性篩選證據
     tools.py      五個具 schema 的工具
   agent/
     state.py      AgentState、預算計算、trace
@@ -285,10 +346,11 @@ src/frus_agentic_rag/
     ablation.py   B0–B3 雙語 ablation
     route.py      路由穩定性
     judge.py      外部評分者
-tests/            四個扁平測試模組，需索引者自動 skip
-docs/             SPEC.md、DECISIONS.md、STATE.md
+tests/            五個扁平測試模組，需索引者自動 skip
+docs/             SPEC.md、DECISIONS.md、STATE.md、HANDOVER.md
 eval/             gold_cases.jsonl
-reports/          corpus_stats、benchmark、graph_smoke、route_stability、agent_ablation
+reports/          corpus_stats、benchmark、graph_smoke、route_stability、
+                  agent_ablation、score_distribution、v1-chunk-grader/（前一輪存檔）
 ```
 
 `Phoenix/` 保留為目錄：`docker compose -f Phoenix/compose.yaml` 以其為專案目錄，並讀取 `Phoenix/.env` 進行變數替換。
@@ -307,7 +369,13 @@ Torch 解析為 PyPI 的 `2.13.0+cu130`，而非規格指定的 cu124 index：to
 
 ## 限制
 
-- agentic 增益尚未量測；在 ablation 產出前不就 B3 與 B0 的相對表現提出主張。
+- 已完成一輪 350 runs 的 ablation，五條預登記門檻通過一條；就該輪數據，
+  B1 為最佳配置，B2/B3 的額外節點降低正確率而未提升召回。
+- 該輪的 p95 延遲數字因追蹤開銷而作廢，須待下一輪重新量測。
+- 證據篩選的門檻參數尚未設定，此階段目前保留全部證據；B3 的糾正迴圈依賴該門檻，
+  在其設定前 B3 的行為等同 B2。
+- 可回答題中約 26% 拒答，其中多數已檢索到 gold 文件，成因為 evidence id 抄寫失敗，
+  中文題受影響程度為英文題的三倍。詳見 [docs/HANDOVER.md](docs/HANDOVER.md)。
 - gold cases 為機器草擬且未經史學專業覆核，適用範圍為回歸訊號，不構成史學正確性的外部評估。
 - gold set 結構性偏向詞彙檢索，無法對向量臂作對等評估；中文能力目前僅有質性證據與回歸測試，尚無量化分數。
 - 中文題的 ablation 含查詢語言差異，其數值不宜單獨解讀。
