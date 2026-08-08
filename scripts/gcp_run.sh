@@ -192,9 +192,32 @@ PY
 BGE=$(uv run python -c "from huggingface_hub import snapshot_download as d; print(d('BAAI/bge-m3'))")
 RR=$(uv run python -c "from huggingface_hub import snapshot_download as d; print(d('BAAI/bge-reranker-v2-m3'))")
 
+# HOME is not set in a GCE startup script, and the ollama CLI calls
+# os.UserHomeDir() while building its config: without it `ollama pull` panics in
+# envconfig.Models() before doing anything. That panic is what left the last run
+# with an empty model list.
+export HOME=/root
 curl -fsSL https://ollama.com/install.sh | sh
-systemctl start ollama && sleep 10
+systemctl start ollama
+
+# Poll rather than sleep. The server takes a variable time to bind, and a fixed
+# sleep turns that into a race that only shows up as a missing model later.
+for i in $(seq 1 60); do
+  curl -sf http://localhost:11434/api/tags >/dev/null && break
+  sleep 2
+done
 ollama pull qwen3:4b-instruct
+
+# Refuse to continue without the model. The evaluator has its own health check
+# and correctly refused all four variants last time, but the script carried on
+# and still printed ALL RUNS COMPLETE — a failure reported as success, which is
+# the exact pattern docs/HANDOVER.md section 4 exists to stop.
+if ! curl -sf http://localhost:11434/api/tags | grep -q 'qwen3:4b-instruct'; then
+  echo "FATAL: qwen3:4b-instruct not available after pull"
+  sync_reports 2>/dev/null || true
+  push_log
+  finish 1
+fi
 
 export FRUS_DATA_DIR=$WORK/data
 export FRUS_LANCEDB_URI=$WORK/data/index/lancedb
@@ -212,6 +235,25 @@ unset PHOENIX_COLLECTOR_ENDPOINT
 
 sync_reports() { gcloud storage rsync -r "$WORK/reports" "$BUCKET/reports" || true; }
 
+# Self-delete needs compute.instances.delete, which the default compute service
+# account does not have; last run the delete failed and the VM stayed up. Try
+# it, then fall back to powering off so the compute charge stops either way.
+finish() {
+  local code=${1:-0}
+  local name zone
+  name=$(curl -sf -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/name)
+  zone=$(curl -sf -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/zone | awk -F/ '{print $NF}')
+  gcloud compute instances delete "$name" --zone "$zone" --quiet || {
+    echo "delete denied; powering off instead. Remove it with:"
+    echo "  gcloud compute instances delete $name --zone $zone --quiet"
+    poweroff
+  }
+  exit "$code"
+}
+
+FAILED=""
+
+
 # 1. Score distribution over the full gold set. Retrieval only, no LLM, minutes.
 #    Everything downstream depends on these numbers, so it runs first.
 uv run python scripts/score_distribution.py
@@ -221,28 +263,40 @@ sync_reports
 #    first as the baseline the adaptive rules have to beat.
 run_variant() {  # name, then FRUS_* assignments
   local name=$1; shift
+  # PIPESTATUS, not the pipeline's status: `| tail` would otherwise mask a
+  # failed eval behind tail's success.
   ( export "$@"; uv run frus eval --no-resume ) 2>&1 | tail -40
+  if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+    echo "VARIANT FAILED: $name"
+    FAILED="$FAILED $name"
+  fi
   cp reports/agent_ablation.json "reports/ablation_${name}.json" 2>/dev/null || true
   cp reports/ablation_runs.jsonl "reports/runs_${name}.jsonl" 2>/dev/null || true
   rm -f reports/ablation_runs.jsonl
   sync_reports
 }
-run_variant A_fixed_topk   FRUS_SCORE_MIN_PER_HOP=5 FRUS_SCORE_MAX_PER_HOP=5
-run_variant B_min_margin   FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=3.0
-run_variant C_min_margin_max FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=3.0 FRUS_SCORE_MAX_PER_HOP=8
+#    The numbers come from reports/score_distribution.json over all 35 cases,
+#    not from intuition. margin=4.3 is the largest top-score-to-deepest-gold gap
+#    observed on any question (p90 3.50, p95 3.96, max 4.28), so it keeps every
+#    gold passage retrieval found. min=3 covers the first gold for 75% of
+#    questions; the rank-15 worst case is what max=8 trades away deliberately.
+run_variant A_fixed_topk     FRUS_SCORE_MIN_PER_HOP=5 FRUS_SCORE_MAX_PER_HOP=5
+run_variant B_min_margin     FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3
+run_variant C_min_margin_max FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 FRUS_SCORE_MAX_PER_HOP=8
 
 # 3. Sentence focus is currently applied to every system, so it is only
 #    measurable as a paired run against itself with focus off.
-run_variant C_focus_off FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=3.0 \
+run_variant C_focus_off FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
   FRUS_SCORE_MAX_PER_HOP=8 FRUS_FOCUS_SENTENCES=false
 
-echo "ALL RUNS COMPLETE"
+if [[ -n "$FAILED" ]]; then
+  echo "RUNS FINISHED WITH FAILURES:$FAILED"
+else
+  echo "ALL RUNS COMPLETE"
+fi
 sync_reports
 push_log
-# Self-delete so a finished job stops costing money.
-NAME=$(curl -sf -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/name)
-ZONE=$(curl -sf -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/zone | awk -F/ '{print $NF}')
-gcloud compute instances delete "$NAME" --zone "$ZONE" --quiet
+finish 0
 STARTUP
 }
 
