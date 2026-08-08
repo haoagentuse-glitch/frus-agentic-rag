@@ -130,9 +130,17 @@ completion、每次檢索 20 份 × 2000 字元）。Phoenix 吞不下，exporte
 gold set 裡沒有任何 timeline 題。三類該補的題型：
 高扇出多跳（10-14 份 anchor）、有時間範圍的編年題、過寬而應拒答的題。
 
-### 1.7 基礎映像檔有 11.9GB 重複的 torch 層
+### 1.7 基礎映像檔重複的 torch 層 —— **已解決**
 
-建議拆成薄的 CUDA+Python+uv base，Ollama 獨立成一個容器，模型走掛載。未動。
+成因不是「重複的 layer」而是**被遮蔽的 venv**：`jobshift:latest` 與本專案都把
+virtualenv 放在 `/opt/venv`，本專案的 `uv sync` 覆寫了它，而 Docker layer 是疊加的，
+覆寫不會回收先前 layer。映像因此帶著一套 6.4 GB 完全無法存取的 torch 2.6.0+cu124。
+
+改以 `python:3.12-slim-bookworm` 為基底、依 `uv.lock` 安裝：**19.2 GB → 9.56 GB**，
+`torch.cuda.is_available()` 仍為 True。不需要 CUDA 基底映像，torch wheel 自帶 runtime。
+`scripts/dev.sh` 改用 `frus-agentic-rag:latest`（`FRUS_IMAGE` 可覆寫），不再依賴 jobshift。
+
+尚未做：Ollama 目前仍與本專案共用一份 compose，未拆成獨立容器。
 
 ### 1.8 WSL 記憶體未設定
 

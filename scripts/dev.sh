@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Host-venv runner: same code as the image, no rebuild round-trip.
+# The image supplies the OS and the CUDA plumbing; PATH below puts the host
+# venv first, so a source edit needs no rebuild.
 # Usage: ./scripts/dev.sh frus manifest        (add --gpus via FRUS_GPU=1)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -53,4 +55,4 @@ exec docker run --rm -i "${GPU_ARGS[@]}" \
   -e GEMINI_MODEL="${GEMINI_MODEL:-$(grep -m1 '^GEMINI_MODEL=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')}" \
   -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -e TOKENIZERS_PARALLELISM=false \
   --entrypoint "" \
-  jobshift:latest "$@"
+  "${FRUS_IMAGE:-frus-agentic-rag:latest}" "$@"
