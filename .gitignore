@@ -22,3 +22,4 @@ build/
 .ollama/
 checkpoints/*.sqlite
 scratch/
+.gcp_zone
