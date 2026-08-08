@@ -76,13 +76,19 @@ cmd_launch() {
   local spot_args=()
   [[ "$SPOT" == "1" ]] && spot_args=(--provisioning-model=SPOT --instance-termination-action=DELETE)
 
-  # Deep Learning VM: CUDA, the driver and Python are already in the image, so
-  # there is no driver install to fail and no container to build.
+  # Deep Learning VM: CUDA and the driver are already in the image, so there is
+  # no driver install to fail and no container to build. `common-` rather than
+  # `pytorch-`: uv installs torch from uv.lock into its own venv either way, and
+  # the pytorch image's preinstalled copy would only be a second version to
+  # confuse the picture. Google retires these families, so if creation fails
+  # with "resource not found", list what exists now:
+  #   gcloud compute images list --project deeplearning-platform-release \
+  #     --no-standard-images --format='value(family)' | sort -u
   gcloud compute instances create "$VM" \
     --project "$PROJECT" --zone "$ZONE" \
     --machine-type "$MACHINE" \
     --accelerator "type=$GPU,count=1" \
-    --image-family=common-cu124-ubuntu-2204-py310 \
+    --image-family="${GCP_IMAGE_FAMILY:-common-cu129-ubuntu-2204-nvidia-580}" \
     --image-project=deeplearning-platform-release \
     --boot-disk-size=200GB --boot-disk-type=pd-balanced \
     --metadata-from-file=startup-script=<(render_startup) \
