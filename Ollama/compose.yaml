@@ -1,0 +1,50 @@
+# Ollama as shared infrastructure, not a FRUS service.
+#
+# It used to be a service inside this project's compose, which made a model
+# server that several projects use into a dependency of one of them: `compose
+# down` here stopped the server for everything, and the 2.3GB of pulled weights
+# lived in a volume named after this project. Phoenix was already split out for
+# the same reason; this follows it.
+#
+#   docker compose -f Ollama/compose.yaml up -d
+#   docker compose -f Ollama/compose.yaml exec ollama ollama pull qwen3:4b-instruct
+#
+# FRUS reaches it on the host gateway at 11434, the same way it reaches Phoenix.
+name: ollama
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      # One request and one resident model at a time. This shares an 8GB card
+      # with BGE-M3 and a cross-encoder; letting Ollama hold several models
+      # is what makes the embedding job OOM.
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  # External and unprefixed on purpose: the weights outlive any one project, and
+  # a compose-managed volume would be named for whichever project declared it.
+  # Create once with `docker volume create ollama-models`.
+  ollama-models:
+    external: true

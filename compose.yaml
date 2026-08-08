@@ -11,7 +11,9 @@ x-frus-env: &frus-env
   FRUS_RAW_DIR: /data/raw/frus/volumes
   FRUS_LANCEDB_URI: /data/index/lancedb
   FRUS_BGE_MODEL_PATH: ${FRUS_BGE_MODEL_PATH:-/models/hf-hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181}
-  FRUS_OLLAMA_HOST: http://ollama:11434
+  # Ollama runs outside this compose project (see Ollama/compose.yaml), so it is
+  # reached on the host gateway just like Phoenix.
+  FRUS_OLLAMA_HOST: ${FRUS_OLLAMA_HOST:-http://host.docker.internal:11434}
   FRUS_OLLAMA_MODEL: ${FRUS_OLLAMA_MODEL:-qwen3:4b-instruct}
   HF_HUB_OFFLINE: "1"
   TRANSFORMERS_OFFLINE: "1"
@@ -50,7 +52,8 @@ services:
     working_dir: /app
     command: ["frus", "--help"]
 
-  # Offline full-corpus BGE-M3 embedding. GPU. Stop ollama first.
+  # Offline full-corpus BGE-M3 embedding. GPU. Stop Ollama first:
+  #   docker compose -f Ollama/compose.yaml stop
   embed:
     <<: *frus-image
     extra_hosts: *frus-hosts
@@ -69,24 +72,6 @@ services:
               capabilities: [gpu]
     command: ["frus", "embed", "--all", "--resume"]
 
-  ollama:
-    image: ollama/ollama:latest
-    volumes:
-      - ollama-models:/root/.ollama
-    ports:
-      - "11434:11434"
-    environment:
-      OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_MAX_LOADED_MODELS: "1"
-      OLLAMA_KEEP_ALIVE: "10m"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
   # Online serving: Qwen on GPU via ollama, BGE query embedding on CPU.
   api:
     <<: *frus-image
@@ -99,8 +84,6 @@ services:
     ports:
       # 8000 is taken by another local service; 8010 keeps the two apart.
       - "${FRUS_API_PORT:-8010}:8000"
-    depends_on:
-      - ollama
     command:
       ["uvicorn", "frus_agentic_rag.api:app", "--host", "0.0.0.0", "--port", "8000"]
 
@@ -125,6 +108,3 @@ services:
         "--server.port=8501",
         "--server.headless=true",
       ]
-
-volumes:
-  ollama-models:

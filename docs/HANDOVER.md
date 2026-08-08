@@ -140,7 +140,26 @@ virtualenv 放在 `/opt/venv`，本專案的 `uv sync` 覆寫了它，而 Docker
 `torch.cuda.is_available()` 仍為 True。不需要 CUDA 基底映像，torch wheel 自帶 runtime。
 `scripts/dev.sh` 改用 `frus-agentic-rag:latest`（`FRUS_IMAGE` 可覆寫），不再依賴 jobshift。
 
-尚未做：Ollama 目前仍與本專案共用一份 compose，未拆成獨立容器。
+Ollama 已拆成獨立的 compose 專案 `Ollama/compose.yaml`，與 Phoenix 同樣的做法。
+理由：它是多個專案共用的模型伺服器，掛在本專案底下時，`compose down` 會把大家的
+服務一起停掉，而 2.3GB 的權重存在一個以本專案命名的 volume 裡。
+
+```bash
+docker compose -f Ollama/compose.yaml up -d
+docker compose -f Ollama/compose.yaml exec ollama ollama pull qwen3:4b-instruct
+```
+
+權重改放在 external volume `ollama-models`（不帶專案前綴，因為它比任何專案都長壽），
+遷移時已從舊 volume 複製過去，不需要重新下載。本專案透過 host gateway 的 11434 連它。
+
+映像清理總計：
+
+| | 前 | 後 |
+|---|---:|---:|
+| `frus-agentic-rag` | 19.2 GB | 9.56 GB |
+| `jobshift:latest` | 10.6 GB | 已刪除 |
+| build cache | 11.2 GB | 0 |
+| Docker 總計 | 約 39 GB | **17.9 GB** |
 
 ### 1.8 WSL 記憶體未設定
 
