@@ -1,0 +1,462 @@
+{
+  "runs": 15,
+  "gold_documents": 30,
+  "document_recall_window": 0.9667,
+  "evidence_chunk_recall_window": 0.9667,
+  "document_recall_retrieved": 0.9667,
+  "evidence_chunk_recall_retrieved": 0.9667,
+  "document_hit_but_evidence_missed": 0,
+  "mean_chunks_per_gold_document": 5.7,
+  "rows": [
+    {
+      "case_id": "lookup-01",
+      "language": "zh-TW",
+      "kind": "lookup",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 1,
+      "per_document": [
+        {
+          "document": "frus1919Parisv08:d23",
+          "chunks_in_document": 33,
+          "evidence_chunk": "frus1919Parisv08:d23:26",
+          "evidence_chunk_score": 5.5977,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "lookup-08",
+      "language": "zh-TW",
+      "kind": "lookup",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 1,
+      "per_document": [
+        {
+          "document": "frus1969-76v39:d351",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1969-76v39:d351:0",
+          "evidence_chunk_score": 1.9111,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-13",
+      "language": "zh-TW",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1958-60v07p2:d163",
+          "chunks_in_document": 6,
+          "evidence_chunk": "frus1958-60v07p2:d163:0",
+          "evidence_chunk_score": -0.9331,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1958-60v07p2:d174",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1958-60v07p2:d174:0",
+          "evidence_chunk_score": -2.8457,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-14",
+      "language": "zh-TW",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 3,
+      "per_document": [
+        {
+          "document": "frus1888p1:d135",
+          "chunks_in_document": 12,
+          "evidence_chunk": "frus1888p1:d135:0",
+          "evidence_chunk_score": -1.6016,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1888p1:d136",
+          "chunks_in_document": 8,
+          "evidence_chunk": "frus1888p1:d136:7",
+          "evidence_chunk_score": -0.6812,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1888p1:d140",
+          "chunks_in_document": 4,
+          "evidence_chunk": "frus1888p1:d140:0",
+          "evidence_chunk_score": -1.3643,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-16",
+      "language": "zh-TW",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 3,
+      "per_document": [
+        {
+          "document": "frus1874:d777",
+          "chunks_in_document": 5,
+          "evidence_chunk": "frus1874:d777:0",
+          "evidence_chunk_score": -1.3721,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1874:d778",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1874:d778:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1874:d780",
+          "chunks_in_document": 13,
+          "evidence_chunk": "frus1874:d780:1",
+          "evidence_chunk_score": 0.234,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-17",
+      "language": "zh-TW",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1981-88v05:d148",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1981-88v05:d148:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1981-88v05:d178",
+          "chunks_in_document": 5,
+          "evidence_chunk": "frus1981-88v05:d178:3",
+          "evidence_chunk_score": -0.5835,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "correction-21",
+      "language": "zh-TW",
+      "kind": "correction_matched",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 1,
+      "per_document": [
+        {
+          "document": "frus1949v07p1:d17",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1949v07p1:d17:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-10",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1872p1:d42",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1872p1:d42:0",
+          "evidence_chunk_score": -1.584,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1872p1:d43",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1872p1:d43:0",
+          "evidence_chunk_score": -0.2581,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-13",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "answer",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1958-60v07p2:d163",
+          "chunks_in_document": 6,
+          "evidence_chunk": "frus1958-60v07p2:d163:0",
+          "evidence_chunk_score": -1.3184,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1958-60v07p2:d174",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1958-60v07p2:d174:0",
+          "evidence_chunk_score": -2.9414,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-14",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 3,
+      "per_document": [
+        {
+          "document": "frus1888p1:d135",
+          "chunks_in_document": 12,
+          "evidence_chunk": "frus1888p1:d135:1",
+          "evidence_chunk_score": -0.8125,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1888p1:d136",
+          "chunks_in_document": 8,
+          "evidence_chunk": "frus1888p1:d136:0",
+          "evidence_chunk_score": -0.8945,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1888p1:d140",
+          "chunks_in_document": 4,
+          "evidence_chunk": "frus1888p1:d140:1",
+          "evidence_chunk_score": -1.5293,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-16",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 3,
+      "per_document": [
+        {
+          "document": "frus1874:d777",
+          "chunks_in_document": 5,
+          "evidence_chunk": "frus1874:d777:0",
+          "evidence_chunk_score": -1.3105,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1874:d778",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1874:d778:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1874:d780",
+          "chunks_in_document": 13,
+          "evidence_chunk": "frus1874:d780:1",
+          "evidence_chunk_score": 0.3096,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-17",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1981-88v05:d148",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1981-88v05:d148:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1981-88v05:d178",
+          "chunks_in_document": 5,
+          "evidence_chunk": "frus1981-88v05:d178:3",
+          "evidence_chunk_score": -1.2363,
+          "document_hit_retrieved": false,
+          "document_hit_window": false,
+          "evidence_hit_retrieved": false,
+          "evidence_hit_window": false
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-18",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1885:d507",
+          "chunks_in_document": 1,
+          "evidence_chunk": "frus1885:d507:0",
+          "evidence_chunk_score": null,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1885:d513",
+          "chunks_in_document": 2,
+          "evidence_chunk": "frus1885:d513:0",
+          "evidence_chunk_score": -1.9521,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "multihop-19",
+      "language": "en",
+      "kind": "multihop",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 2,
+      "per_document": [
+        {
+          "document": "frus1955-57v13:d213",
+          "chunks_in_document": 6,
+          "evidence_chunk": "frus1955-57v13:d213:2",
+          "evidence_chunk_score": -1.6719,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        },
+        {
+          "document": "frus1955-57v13:d214",
+          "chunks_in_document": 4,
+          "evidence_chunk": "frus1955-57v13:d214:3",
+          "evidence_chunk_score": -2.1641,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    },
+    {
+      "case_id": "correction-27",
+      "language": "en",
+      "kind": "correction_matched",
+      "outcome": "abstain",
+      "window_size": 10,
+      "gold_documents": 1,
+      "per_document": [
+        {
+          "document": "frus1928v01:d184",
+          "chunks_in_document": 4,
+          "evidence_chunk": "frus1928v01:d184:0",
+          "evidence_chunk_score": 0.6621,
+          "document_hit_retrieved": true,
+          "document_hit_window": true,
+          "evidence_hit_retrieved": true,
+          "evidence_hit_window": true
+        }
+      ]
+    }
+  ]
+}

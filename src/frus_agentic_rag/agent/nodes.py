@@ -485,11 +485,24 @@ async def synthesize(state: AgentState) -> dict:
             ev["error"] = f"synthesis failed: {type(exc).__name__}: {exc}"
             return {"draft_answer": None, "claims": [], "llm_calls": client.calls, "trace": [ev]}
 
+        claims = [Claim(text=c.text, evidence_ids=list(c.evidence_ids)) for c in draft.claims]
+        attribution: dict = {"mode": "model"}
+        if get_settings().citation_mode == "post_hoc":
+            # The ids the model wrote are discarded here. It was never asked to
+            # produce usable ones and, measured, could not.
+            from frus_agentic_rag.agent.attribute import attribute
+
+            claims, attribution = await asyncio.to_thread(attribute, claims, usable)
+
         ev["llm_calls"] = 1
-        ev["detail"] = {"claims": len(draft.claims), "chars": len(draft.answer_text)}
+        ev["detail"] = {
+            "claims": len(claims),
+            "chars": len(draft.answer_text),
+            "attribution": attribution,
+        }
         return {
             "draft_answer": cite.strip_urls(draft.answer_text),
-            "claims": [c.model_dump() for c in draft.claims],
+            "claims": [c.model_dump() for c in claims],
             "limitations": draft.limitations,
             "llm_calls": client.calls,
             "trace": [ev],
@@ -511,18 +524,25 @@ async def validate_citations(state: AgentState) -> dict:
         # means nothing was accepted.
         accepted = state.get("accepted_evidence_ids")
 
-        errors, cited, lines = cite.validate(claims, draft, evidence, accepted)
+        errors, cited, lines, reasons = cite.validate(claims, draft, evidence, accepted)
 
         repaired = False
         if errors and state.get("system") == "B3":
             claims = cite.repair_claims(claims, evidence)
-            errors, cited, lines = cite.validate(claims, draft, evidence, accepted)
+            errors, cited, lines, reasons = cite.validate(claims, draft, evidence, accepted)
             repaired = True
 
+        # Uncited claims are removed from the answer rather than left in it:
+        # a sentence with no citation would otherwise ship inside a cited
+        # answer, which is precisely the thing the gate exists to prevent.
+        surviving = cite.drop_uncited(claims, cited)
         ev["detail"] = {
             "errors": errors,
             "cited_documents": len({(e.volume_id, e.document_id) for e in cited}),
             "repaired": repaired,
+            "claims_kept": len(surviving),
+            "claims_dropped": len(claims) - len(surviving),
+            "reasons": reasons[:8],
         }
         if errors:
             return {
@@ -531,6 +551,7 @@ async def validate_citations(state: AgentState) -> dict:
                 "claims": [c.model_dump() for c in claims],
                 "trace": [ev],
             }
+        claims = surviving
         return {
             "citation_errors": [],
             "citations": lines,

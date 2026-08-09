@@ -130,6 +130,21 @@ class Settings(BaseSettings):
     # rule has to beat before its complexity is worth carrying.
     score_max_per_hop: int | None = None
 
+    # --- citation attribution ------------------------------------------------
+    # "post_hoc": the model writes claims, the cross-encoder attaches the ids.
+    # "model": the old scheme, where the model copies ids verbatim — kept only
+    # so the two can be compared on the same gold set.
+    citation_mode: Literal["post_hoc", "model"] = "post_hoc"
+    attribution_top_k: int = 3
+    # Relative, like the evidence filter and for the same measured reason: the
+    # logits shift by three units between question kinds, so a fixed floor
+    # attributes everything on one kind and nothing on another.
+    attribution_margin: float = 2.0
+    # A floor low enough to admit genuine support and high enough that a claim
+    # the evidence does not make stays uncited. Provisional: the (claim, chunk)
+    # distribution has not been measured the way the (question, chunk) one has.
+    attribution_min_score: float = -6.0
+
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-3.5-flash-lite", alias="GEMINI_MODEL")

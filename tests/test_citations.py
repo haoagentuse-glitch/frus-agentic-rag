@@ -30,7 +30,7 @@ def _no_manifest(monkeypatch):
 
 def test_valid_claim_passes():
     e = ev()
-    errors, cited, lines = cite.validate(
+    errors, cited, lines, _reasons = cite.validate(
         [Claim(text="x", evidence_ids=[e.evidence_id])], "an answer", [e]
     )
     assert errors == []
@@ -41,31 +41,37 @@ def test_valid_claim_passes():
 
 def test_invented_id_is_blocking():
     e = ev()
-    errors, cited, _ = cite.validate(
+    errors, cited, _, reasons = cite.validate(
         [Claim(text="x", evidence_ids=["frus1958-60v01:d999:0"])], "a", [e]
     )
-    assert any("never retrieved" in x for x in errors)
+    assert any("never retrieved" in x for x in reasons)
+    assert errors, "a single-claim answer with no usable citation must still block"
     assert cited == []
 
 
 def test_malformed_id_is_blocking():
     e = ev()
-    errors, _, _ = cite.validate([Claim(text="x", evidence_ids=["not-an-id"])], "a", [e])
-    assert any("malformed" in x for x in errors)
+    errors, _, _, reasons = cite.validate([Claim(text="x", evidence_ids=["not-an-id"])], "a", [e])
+    assert any("malformed" in x for x in reasons)
+    assert errors, "a single-claim answer with no usable citation must still block"
 
 
 def test_retrieved_but_not_accepted_is_blocking():
     e = ev()
-    errors, _, _ = cite.validate(
+    errors, _, _, reasons = cite.validate(
         [Claim(text="x", evidence_ids=[e.evidence_id])], "a", [e], accepted_ids=[]
     )
-    assert any("not accepted" in x for x in errors)
+    # Diagnostic reason survives; blocking is now decided on the answer as a whole.
+    assert any("not accepted" in x for x in reasons)
+    assert errors, "a single-claim answer with no usable citation must still block"
 
 
 def test_editorial_note_is_not_citable():
     e = ev(subtype="editorial-note")
-    errors, _, _ = cite.validate([Claim(text="x", evidence_ids=[e.evidence_id])], "a", [e])
-    assert any("not a citable historical document" in x for x in errors)
+    errors, _, _, reasons = cite.validate([Claim(text="x", evidence_ids=[e.evidence_id])], "a", [e])
+    # Diagnostic reason survives; blocking is now decided on the answer as a whole.
+    assert any("not a citable historical document" in x for x in reasons)
+    assert errors, "a single-claim answer with no usable citation must still block"
 
 
 def test_no_claims_is_blocking():
@@ -74,7 +80,7 @@ def test_no_claims_is_blocking():
 
 def test_model_written_url_is_blocking():
     e = ev()
-    errors, _, _ = cite.validate(
+    errors, _, _, _reasons = cite.validate(
         [Claim(text="x", evidence_ids=[e.evidence_id])],
         "See https://example.com/made-up",
         [e],
@@ -95,7 +101,36 @@ def test_repair_drops_a_claim_with_nothing_left():
 
 def test_citation_lines_are_one_per_document_not_per_chunk():
     a, b = ev("frus1969-76v17:d4:0"), ev("frus1969-76v17:d4:1")
-    _, _, lines = cite.validate(
+    _, _, lines, _ = cite.validate(
         [Claim(text="x", evidence_ids=[a.evidence_id, b.evidence_id])], "a", [a, b]
     )
     assert len(lines) == 1
+
+
+def test_one_bad_claim_no_longer_discards_the_good_ones():
+    """Partial acceptance. This is the behaviour change, so it gets a test.
+
+    Whole-answer blocking was costing more than it protected: 57 of 79
+    abstentions on answerable questions were answers whose remaining claims were
+    citable. One unusable id now drops that claim, not the answer.
+    """
+    good = ev("frus1969-76v17:d1:0")
+    errors, cited, _lines, reasons = cite.validate(
+        [
+            Claim(text="supported", evidence_ids=[good.evidence_id]),
+            Claim(text="unsupported", evidence_ids=["frus1958-60v01:d999:0"]),
+        ],
+        "prose",
+        [good],
+    )
+    assert not errors, "one bad claim among two must not block the answer"
+    assert [e.evidence_id for e in cited] == [good.evidence_id]
+    assert any("never retrieved" in x for x in reasons)
+    kept = cite.drop_uncited(
+        [
+            Claim(text="supported", evidence_ids=[good.evidence_id]),
+            Claim(text="unsupported", evidence_ids=["frus1958-60v01:d999:0"]),
+        ],
+        cited,
+    )
+    assert [c.text for c in kept] == ["supported"]

@@ -7,6 +7,7 @@ unanswerable) can be forced deterministically rather than hoped for.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from frus_agentic_rag.agent.schemas import AgentAnswer, EvidenceGrade, HopGrade, QueryPlan, SubQuery
@@ -126,9 +127,12 @@ class FakeClient:
             verdict = self.grade_sequence[min(self._grade_i, len(self.grade_sequence) - 1)]
             self._grade_i += 1
             has_evidence = "no evidence retrieved" not in user
-            # Inverted grader: an unsupported hop rejects what it saw, a
-            # supported one rejects nothing.
-            ids = [] if (verdict == "supported" or not has_evidence) else ["frus1969-76v17:d1:0"]
+            # Inverted grader: "unsupported" means nothing shown was relevant, so
+            # it rejects every id in the window. Naming a single id here made the
+            # fake claim a verdict it was not expressing, and the unanswerable
+            # path then answered from evidence the grader had dismissed.
+            shown = re.findall(r"\[id: ([^\]]+)\]", user)
+            ids = [] if (verdict == "supported" or not has_evidence) else shown
             return EvidenceGrade(
                 hops=[
                     HopGrade(

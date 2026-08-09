@@ -145,9 +145,16 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
             latency_s=round(time.perf_counter() - t0, 3),
         )
 
-    claims = [Claim(text=c.text, evidence_ids=c.evidence_ids) for c in draft.claims]
+    claims = [Claim(text=c.text, evidence_ids=list(c.evidence_ids)) for c in draft.claims]
+    # The baseline gets post-hoc attribution too. Leaving it on model-written
+    # ids would make the ablation a comparison of citation schemes rather than
+    # of the graph, which is the one thing it is supposed to isolate.
+    if settings.citation_mode == "post_hoc":
+        from frus_agentic_rag.agent.attribute import attribute
+
+        claims, _ = await asyncio.to_thread(attribute, claims, evidence)
     text = cite.strip_urls(draft.answer_text)
-    errors, cited, lines = cite.validate(claims, text, evidence)
+    errors, cited, lines, _ = cite.validate(claims, text, evidence)
 
     return Answer(
         question=question,

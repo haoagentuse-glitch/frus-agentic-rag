@@ -34,12 +34,23 @@ def validate(
     answer_text: str,
     retrieved: list[Evidence],
     accepted_ids: list[str] | None = None,
-) -> tuple[list[str], list[Evidence], list[str]]:
-    """Returns (errors, cited evidence, citation lines).
+) -> tuple[list[str], list[Evidence], list[str], list[str]]:
+    """Returns (blocking errors, cited evidence, citation lines, per-claim reasons).
 
-    A non-empty error list is a blocking failure: the caller must abstain.
+    A non-empty error list is a blocking failure: the caller must abstain. The
+    reasons are diagnostic and never block on their own — they say why each
+    individual id was refused, which is the only way a trace can distinguish an
+    invented id from an unaccepted one after partial acceptance stopped either
+    from failing the answer.
     """
     errors: list[str] = []
+    # Claims that could not be cited. Reported separately from errors: one
+    # unsupported claim among eight is a reason to drop that claim, not to throw
+    # away seven valid citations. The whole-answer failure was costing more than
+    # it protected — 57 of 79 abstentions on answerable questions were answers
+    # whose other claims were fine.
+    dropped: list[int] = []
+    reasons: list[str] = []
     by_id = {e.evidence_id: e for e in retrieved}
     # None means no grading happened, so anything retrieved may be cited.
     # An empty list means the grader accepted nothing, which must block —
@@ -53,29 +64,39 @@ def validate(
         errors.append("no claims: answer carries no citable statements")
 
     for i, claim in enumerate(claims):
+        kept_here = 0
         if not claim.evidence_ids:
-            errors.append(f"claim {i} has no evidence id")
-            continue
+            reasons.append(f"claim {i} has no evidence id")
         for eid in claim.evidence_ids:
             if not CHUNK_ID_RE.match(eid):
-                errors.append(f"claim {i}: malformed evidence id {eid!r}")
+                reasons.append(f"claim {i}: malformed evidence id {eid!r}")
                 continue
             if eid not in by_id:
-                errors.append(f"claim {i}: evidence id {eid!r} was never retrieved")
+                reasons.append(f"claim {i}: evidence id {eid!r} was never retrieved")
                 continue
             if eid not in allowed:
-                errors.append(f"claim {i}: evidence id {eid!r} was not accepted by the grader")
+                reasons.append(f"claim {i}: evidence id {eid!r} was not accepted by the grader")
                 continue
             ev = by_id[eid]
             if ev.volume_id not in published and published:
-                errors.append(f"claim {i}: volume {ev.volume_id} is not a published volume")
+                reasons.append(f"claim {i}: volume {ev.volume_id} is not a published volume")
                 continue
             if ev.subtype not in CITABLE_SUBTYPES:
-                errors.append(
+                reasons.append(
                     f"claim {i}: {eid} is a {ev.subtype}, not a citable historical document"
                 )
                 continue
             cited[eid] = ev
+            kept_here += 1
+        if kept_here == 0:
+            dropped.append(i)
+
+    # The gate still blocks — but on the answer as a whole being ungrounded,
+    # not on any single claim being so.
+    if claims and len(dropped) == len(claims):
+        errors.append(
+            f"no claim could be cited: {len(dropped)} of {len(claims)} carry no usable evidence"
+        )
 
     # The model must not smuggle in its own links; ours are built below.
     for url in URL_RE.findall(answer_text):
@@ -83,7 +104,13 @@ def validate(
 
     ordered = sorted(cited.values(), key=lambda e: (e.volume_id, e.document_id, e.evidence_id))
     lines = _citation_lines(ordered)
-    return errors, ordered, lines
+    return errors, ordered, lines, reasons
+
+
+def drop_uncited(claims: list[Claim], cited: list[Evidence]) -> list[Claim]:
+    """Keep only the claims that ended up with a valid citation."""
+    ok = {e.evidence_id for e in cited}
+    return [c for c in claims if any(i in ok for i in c.evidence_ids)]
 
 
 def _citation_lines(evidence: list[Evidence]) -> list[str]:

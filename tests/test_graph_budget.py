@@ -81,7 +81,15 @@ async def test_correction_runs_at_most_once(wired):
     assert result.outcome in ("answer", "abstain")
 
 
-async def test_invented_citation_forces_abstain(wired):
+async def test_invented_citation_forces_abstain(wired, monkeypatch):
+    """Only meaningful under citation_mode="model".
+
+    Under post-hoc attribution the model's ids are discarded before the gate
+    ever sees them, so an invented id cannot force anything — that is the point
+    of the change, not a regression. The post-hoc contract is the next test.
+    """
+    monkeypatch.setenv("FRUS_CITATION_MODE", "model")
+    get_settings.cache_clear()
     tb = fakes.FakeToolbox()
     client = fakes.FakeClient(claim_ids=["frus1958-60v01:d999:0"])
     wired(tb, client)
@@ -107,3 +115,24 @@ def test_smoke_report_passes(tmp_path):
     summary = run_smoke(out=tmp_path / "graph_smoke.json")
     assert summary["pass"], summary
     assert summary["all_within_budget"]
+
+
+@pytest.mark.asyncio
+async def test_post_hoc_attribution_ignores_an_invented_id(wired, monkeypatch):
+    """The model naming a nonexistent chunk must stop mattering.
+
+    57 of 79 abstentions on answerable questions were caused by ids the model
+    could not copy correctly. Post-hoc attribution discards what it wrote, so
+    the same run now answers and cites real evidence.
+    """
+    monkeypatch.setenv("FRUS_CITATION_MODE", "post_hoc")
+    get_settings.cache_clear()
+    tb = fakes.FakeToolbox()
+    client = fakes.FakeClient(claim_ids=["frus1958-60v01:d999:0"])
+    wired(tb, client)
+
+    result = await run.answer("a question", language="en", system="B3")
+    if result.outcome == "answer":
+        assert all(
+            i not in ("frus1958-60v01:d999:0",) for c in result.claims for i in c.evidence_ids
+        ), "the invented id must never survive into a citation"
