@@ -117,6 +117,7 @@ us-east4-a us-east4-c us-west1-a us-west1-b us-west4-a europe-west4-a europe-wes
 ZONE_STATE=".gcp_zone"
 
 cmd_launch() {
+  check_startup
   read -r -a zones <<<"${GCP_ZONES:-$ZONE $ZONES_DEFAULT}"
   local modes=("spot" "ondemand")
   [[ "$SPOT" == "1" ]] || modes=("ondemand")
@@ -154,6 +155,23 @@ try_create() {
   fi
   echo "$out" >&2
   die "instance create failed for a reason other than capacity"
+}
+
+# The startup script sits inside a heredoc, so `bash -n scripts/gcp_run.sh`
+# parses it as a string and reports nothing. An orphaned `fi` left by an edit
+# therefore shipped to a VM, which ran D0 and D6, hit the error, and died —
+# costing a launch and twenty minutes to diagnose from a serial console. Check
+# it here, where the cost is a subshell.
+check_startup() {
+  local tmp
+  tmp=$(mktemp)
+  render_startup > "$tmp"
+  if ! bash -n "$tmp" 2>/tmp/startup-syntax.err; then
+    cat /tmp/startup-syntax.err >&2
+    rm -f "$tmp"
+    die "startup script has a syntax error; nothing was launched"
+  fi
+  rm -f "$tmp"
 }
 
 do_create() {
@@ -356,7 +374,10 @@ run_variant D1_model_citation FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.
 run_variant D4_neighbours     FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
   FRUS_CONTEXT_EXPAND_NEIGHBOURS=1
 
-echo "ALL RUNS COMPLETE"
+if [[ -n "$FAILED" ]]; then
+  echo "RUNS FINISHED WITH FAILURES:$FAILED"
+else
+  echo "ALL RUNS COMPLETE"
 fi
 sync_reports
 push_log
