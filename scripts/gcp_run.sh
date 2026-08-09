@@ -108,7 +108,7 @@ cmd_launch() {
 
   for mode in "${modes[@]}"; do
     local spot_args=()
-    [[ "$mode" == "spot" ]] && spot_args=(--provisioning-model=SPOT --instance-termination-action=DELETE)
+    [[ "$mode" == "spot" ]] && spot_args=(--provisioning-model=SPOT)
     for z in "${zones[@]}"; do
       echo "== trying $MACHINE + $GPU in $z ($mode) =="
       if try_create "$z" "${spot_args[@]}"; then
@@ -164,8 +164,15 @@ do_create() {
     --metadata="install-nvidia-driver=True,bucket=$BUCKET" \
     --scopes=cloud-platform \
     --maintenance-policy=TERMINATE \
+    --max-run-duration="${GCP_MAX_RUN:-6h}" --instance-termination-action=DELETE \
     "${spot_args[@]}"
 }
+
+# A deadline GCP enforces, because the guest cannot be trusted to stop billing.
+# The startup script tries to delete itself and falls back to poweroff, and on
+# the last run neither happened: the log ends at ALL RUNS COMPLETE, push_log
+# runs before the delete attempt, and the instance was still RUNNING three hours
+# later. --max-run-duration does not depend on anything inside the VM.
 
 # The launch sweep may land anywhere, so the other subcommands read back where.
 resolved_zone() {
