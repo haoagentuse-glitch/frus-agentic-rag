@@ -6,7 +6,9 @@ so it cannot separate a supported claim from one that over-reads its source.
 Kept because re-measuring is the cheapest way to check that conclusion still
 holds after a reranker or prompt change.
 """
-import asyncio, json
+import asyncio
+import json
+
 from frus_agentic_rag.agent.run import answer
 from frus_agentic_rag.retrieval import rerank as rr
 
