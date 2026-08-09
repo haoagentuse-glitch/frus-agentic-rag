@@ -590,6 +590,7 @@ async def validate_citations(state: AgentState) -> dict:
 async def abstain(state: AgentState) -> dict:
     """Refuse rather than answer from outside FRUS. Costs no LLM call."""
     with NodeTimer("abstain") as ev:
+        zh = state.get("answer_language") == "zh-TW"
         reasons = state.get("citation_errors") or state.get("missing_hops") or ["no evidence"]
         ev["detail"] = {"reasons": reasons[:5]}
         return {
