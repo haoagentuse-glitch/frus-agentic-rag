@@ -90,7 +90,7 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
     Deliberately kept as its own function: if the graph's B0 wiring ever drifts,
     this still shows what a non-agentic system does.
     """
-    from frus_agentic_rag.agent.prompts import SYNTH_SYSTEM_EN, SYNTH_SYSTEM_ZH, synth_user
+    from frus_agentic_rag.agent.prompts import synth_system, synth_user
     from frus_agentic_rag.agent.schemas import AgentAnswer
     from frus_agentic_rag.models import SearchFilters
     from frus_agentic_rag.retrieval.tools import get_toolbox
@@ -125,10 +125,9 @@ async def answer_2step(question: str, language: str | None = None) -> Answer:
 
     evidence, _ = await asyncio.to_thread(focus_evidence, question, evidence)
 
-    zh = language == "zh-TW"
     try:
         draft = await client.structured(
-            SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN,
+            synth_system(language),
             synth_user(question, evidence),
             AgentAnswer,
             num_predict=settings.ollama_num_predict_synthesis,

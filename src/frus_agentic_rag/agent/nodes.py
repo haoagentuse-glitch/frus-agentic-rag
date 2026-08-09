@@ -13,10 +13,9 @@ from frus_agentic_rag.agent.prompts import (
     GRADER_MAX_EVIDENCE,
     GRADER_SYSTEM,
     PLANNER_SYSTEM,
-    SYNTH_SYSTEM_EN,
-    SYNTH_SYSTEM_ZH,
     grader_user,
     planner_user,
+    synth_system,
     synth_user,
 )
 from frus_agentic_rag.agent.schemas import (
@@ -500,11 +499,10 @@ async def synthesize(state: AgentState) -> dict:
             ev["detail"] = {"reason": "no accepted evidence"}
             return {"draft_answer": None, "claims": [], "trace": [ev]}
 
-        zh = state.get("answer_language") == "zh-TW"
         client = get_client()
         try:
             draft = await client.structured(
-                SYNTH_SYSTEM_ZH if zh else SYNTH_SYSTEM_EN,
+                synth_system(state.get("answer_language") or "en"),
                 synth_user(state["question"], usable),
                 AgentAnswer,
                 num_predict=get_settings().ollama_num_predict_synthesis,
@@ -592,7 +590,6 @@ async def validate_citations(state: AgentState) -> dict:
 async def abstain(state: AgentState) -> dict:
     """Refuse rather than answer from outside FRUS. Costs no LLM call."""
     with NodeTimer("abstain") as ev:
-        zh = state.get("answer_language") == "zh-TW"
         reasons = state.get("citation_errors") or state.get("missing_hops") or ["no evidence"]
         ev["detail"] = {"reasons": reasons[:5]}
         return {
