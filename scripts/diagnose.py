@@ -169,7 +169,13 @@ async def d2(args) -> None:
                     "answered": bool(text),
                     "judge_score": v.score,
                     "judge": v.judge,
-                    "answer_preview": text[:200],
+                    # The reason, and the whole answer rather than a preview.
+                    # Scored 0 with only 200 characters stored, an answer cannot
+                    # be re-examined: re-judging the previews of ten zeros came
+                    # back at 0.370, so the score and the answer have to be
+                    # inspectable together or neither can be trusted.
+                    "judge_reason": v.reason,
+                    "answer_text": text,
                 }
             )
         print(f"[{n}/{len(cases)}] {case['case_id']}", flush=True)

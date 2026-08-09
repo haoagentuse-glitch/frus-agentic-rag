@@ -128,6 +128,7 @@ async def _run_case(case: dict, system: str, language: str, use_judge: bool) -> 
         "latency_s": result.latency_s,
         "correction_used": any(t.get("node") == "rewrite_missing" for t in result.trace),
         "judge_score": verdict.get("score"),
+        "judge_reason": (verdict.get("reason") or "")[:300],
         "judge_correct": verdict.get("correct"),
         "judge": verdict.get("judge"),
         "error": error,
