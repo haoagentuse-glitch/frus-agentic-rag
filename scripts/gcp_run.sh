@@ -69,6 +69,22 @@ cmd_upload() {
   gcloud storage rsync -r data/index/lancedb "$BUCKET/data/index/lancedb"
   gcloud storage rsync -r data/processed "$BUCKET/data/processed"
   gcloud storage cp eval/gold_cases.jsonl "$BUCKET/eval/gold_cases.jsonl"
+
+  # The judge key. Without it `frus eval` records judge: unavailable and the run
+  # produces every deterministic metric but no answer correctness — which is one
+  # of the four things docs/HANDOVER.md 3.1 says the filtering rule is optimising
+  # for, so a run missing it cannot decide between the variants.
+  # Via the bucket rather than instance metadata: same project-level trust
+  # boundary, but not returned by `gcloud compute instances describe`, which is
+  # the output people paste into issues.
+  if grep -q '^GEMINI_API_KEY=' .env 2>/dev/null; then
+    grep -E '^GEMINI_(API_KEY|MODEL)=' .env | tr -d '\r' > /tmp/judge.env
+    gcloud storage cp /tmp/judge.env "$BUCKET/secrets/judge.env"
+    rm -f /tmp/judge.env
+    echo "judge key uploaded"
+  else
+    echo "WARNING: no GEMINI_API_KEY in .env; the run will have no correctness metric"
+  fi
   echo "upload complete"
 }
 
@@ -175,6 +191,9 @@ mkdir -p data/index data/processed eval reports
 gcloud storage rsync -r "$BUCKET/data/index/lancedb" data/index/lancedb
 gcloud storage rsync -r "$BUCKET/data/processed" data/processed
 gcloud storage cp "$BUCKET/eval/gold_cases.jsonl" eval/gold_cases.jsonl
+if gcloud storage cp "$BUCKET/secrets/judge.env" /tmp/judge.env 2>/dev/null; then
+  set -a; . /tmp/judge.env; set +a; rm -f /tmp/judge.env
+fi
 
 # Python env. uv resolves the locked deps directly; no Docker on the VM.
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -265,7 +284,10 @@ run_variant() {  # name, then FRUS_* assignments
   local name=$1; shift
   # PIPESTATUS, not the pipeline's status: `| tail` would otherwise mask a
   # failed eval behind tail's success.
-  ( export "$@"; uv run frus eval --no-resume ) 2>&1 | tail -40
+  # --systems explicitly: the CLI default omits B0-2step, and the fixed
+  # two-step pipeline is the baseline the whole ablation is measured against.
+  ( export "$@"; uv run frus eval --no-resume \
+      --systems B0-2step,B0,B1,B2,B3 ) 2>&1 | tail -40
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo "VARIANT FAILED: $name"
     FAILED="$FAILED $name"
