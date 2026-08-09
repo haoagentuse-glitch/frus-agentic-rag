@@ -64,8 +64,23 @@ def _endpoint() -> str:
     return f"{base}/models/{model}:generateContent"
 
 
+def provider() -> str:
+    """Which judge to call. DeepSeek wins when both keys are present.
+
+    Not a preference for the model so much as for the billing: the Gemini free
+    tier is 500 requests a day, and running out of it mid-sweep is what turned
+    one ablation variant into 195 errors recorded as zeros. A paid endpoint
+    removes the failure mode for less than a dollar over the whole D-series.
+    """
+    if _env("DEEPSEEK_API_KEY"):
+        return "deepseek"
+    if _env("GEMINI_API_KEY"):
+        return "gemini"
+    return "none"
+
+
 def available() -> bool:
-    return bool(_env("GEMINI_API_KEY"))
+    return provider() != "none"
 
 
 @lru_cache(maxsize=512)
@@ -146,11 +161,38 @@ async def judge_answer(
         f"{_reference_block(gold_documents)}\n\n"
         f"ANSWER UNDER TEST:\n{answer_text[:6000]}\n\nScore it."
     )
-    payload = {
-        "system_instruction": {"parts": [{"text": SYSTEM}]},
-        "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
-    }
+    who = provider()
+    if who == "deepseek":
+        # OpenAI-compatible. The legacy deepseek-chat / deepseek-reasoner
+        # aliases were retired on 2026-07-24; v4-flash and v4-pro replace them.
+        base = _env("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+        base = base.rstrip("/")
+        url = f"{base}/chat/completions"
+        headers = {"Authorization": f"Bearer {_env('DEEPSEEK_API_KEY')}"}
+        payload = {
+            "model": _env("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+            "messages": [
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.0,
+            "response_format": {"type": "json_object"},
+        }
+
+        def _extract(data: dict) -> str:
+            return data["choices"][0]["message"]["content"]
+    else:
+        url = _endpoint()
+        headers = {"x-goog-api-key": _env("GEMINI_API_KEY")}
+        payload = {
+            "system_instruction": {"parts": [{"text": SYSTEM}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
+        }
+
+        def _extract(data: dict) -> str:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+
     text = ""
     last_exc: Exception | None = None
     # Timeouts on a home connection are transient; a judge that gives up on the
@@ -158,13 +200,9 @@ async def judge_answer(
     for attempt in range(3):
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                r = await client.post(
-                    _endpoint(),
-                    headers={"x-goog-api-key": _env("GEMINI_API_KEY")},
-                    json=payload,
-                )
+                r = await client.post(url, headers=headers, json=payload)
                 r.raise_for_status()
-                text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                text = _extract(r.json())
             break
         except Exception as exc:
             last_exc = exc
@@ -189,14 +227,15 @@ async def judge_answer(
         score=score,
         correct=bool(data.get("correct", score >= 0.5)),
         reason=str(data.get("reason", ""))[:300],
+        judge=who,
     )
 
 
 async def health() -> dict:
     if not available():
-        return {"available": False, "reason": "GEMINI_API_KEY unset"}
+        return {"available": False, "reason": "no DEEPSEEK_API_KEY or GEMINI_API_KEY"}
     v = await judge_answer("test", "The sky is blue.", ["frusTEST:d1"], True, "answer")
-    return {"available": v.judge == "gemini", "judge": v.judge, "reason": v.reason}
+    return {"available": v.judge in ("gemini", "deepseek"), "judge": v.judge, "reason": v.reason}
 
 
 def health_sync() -> dict:

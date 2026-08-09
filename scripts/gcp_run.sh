@@ -81,13 +81,13 @@ cmd_upload() {
   # Via the bucket rather than instance metadata: same project-level trust
   # boundary, but not returned by `gcloud compute instances describe`, which is
   # the output people paste into issues.
-  if grep -q '^GEMINI_API_KEY=' .env 2>/dev/null; then
-    grep -E '^GEMINI_(API_KEY|MODEL)=' .env | tr -d '\r' > /tmp/judge.env
+  if grep -qE '^(GEMINI|DEEPSEEK)_API_KEY=' .env 2>/dev/null; then
+    grep -E '^(GEMINI|DEEPSEEK)_(API_KEY|MODEL|BASE_URL)=' .env | tr -d '\r' > /tmp/judge.env
     gcloud storage cp /tmp/judge.env "$BUCKET/secrets/judge.env"
     rm -f /tmp/judge.env
     echo "judge key uploaded"
   else
-    echo "WARNING: no GEMINI_API_KEY in .env; the run will have no correctness metric"
+    echo "WARNING: no judge key in .env; the run will have no correctness metric"
   fi
   echo "upload complete"
 }
@@ -294,12 +294,10 @@ sync_reports
 uv run python scripts/diagnose.py d2 || FAILED="$FAILED d2"
 sync_reports
 
-# D3: the same gold evidence through a larger generator, only on what D2 still
-# got wrong. Never re-retrieves, so retrieval noise cannot decide which model
-# looks better.
-ollama pull qwen3:8b || true
-uv run python scripts/diagnose.py d3 --models qwen3:4b-instruct,qwen3:8b || FAILED="$FAILED d3"
-sync_reports
+# D3 is deliberately not run here. It is a branch of D2, not a step after it:
+# comparing generators is only worth paying for once D2 has shown the generator
+# is the bottleneck. Run it separately if D2 says so:
+#   python scripts/diagnose.py d3 --models qwen3:4b-instruct,qwen3:8b
 
 # D1 and D4 go through the normal evaluator, on the reduced case set: ten cases
 # preserve every ordering the full set separates by more than 3pp, at 3.5x the
@@ -307,7 +305,10 @@ sync_reports
 CORE="--cases eval/gold_cases_core.jsonl"
 run_variant() {
   local name=$1; shift
-  ( export "$@"; uv run frus eval --no-resume $CORE --systems B0-2step,B0,B1,B2,B3 ) 2>&1 | tail -30
+  # B3 only. D1 and D4 each change one thing about the citation or context
+  # path; sweeping five systems at the same time would vary a second thing and
+  # cost four times the judge calls for no diagnostic gain.
+  ( export "$@"; uv run frus eval --no-resume $CORE --systems B3 ) 2>&1 | tail -30
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo "VARIANT FAILED: $name"
     FAILED="$FAILED $name"
