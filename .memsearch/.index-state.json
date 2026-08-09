@@ -1,11 +1,11 @@
 {
   "collection": "ms_frus_agenticrag_bb2fa908",
   "failed_files": [],
-  "indexed_chunks": 2,
+  "indexed_chunks": 3,
   "indexed_files": 1,
-  "last_completed_at": "2026-08-09T12:39:15.830166Z",
-  "last_started_at": "2026-08-09T12:39:12.873518Z",
-  "last_success_at": "2026-08-09T12:39:15.830166Z",
+  "last_completed_at": "2026-08-09T13:16:16.996792Z",
+  "last_started_at": "2026-08-09T13:16:12.963120Z",
+  "last_success_at": "2026-08-09T13:16:16.996792Z",
   "milvus_uri": "~/.memsearch/milvus.db",
   "operation": "index",
   "paths": [
@@ -14,5 +14,5 @@
   "schema_version": 1,
   "status": "ok",
   "total_files": 1,
-  "updated_at": "2026-08-09T12:39:15.830166Z"
+  "updated_at": "2026-08-09T13:16:16.996792Z"
 }

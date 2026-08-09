@@ -282,7 +282,13 @@ FAILED=""
 # and the cheap ones run first, so an expensive index rebuild is only paid for
 # once something has been shown to need it.
 
-# D0 and D6 read records that already exist — no model, seconds.
+# D0 and D6 read records that already exist, so the VM has to fetch them first:
+# its reports/ starts empty, and without this D0 finds no runs_*.jsonl and D6
+# finds no score_distribution.jsonl. Both then write nothing and sync an empty
+# file over the good one in the bucket.
+gcloud storage rsync -r "$BUCKET/reports" "$WORK/reports" || true
+
+# No model, seconds.
 uv run python scripts/diagnose.py d0 || FAILED="$FAILED d0"
 uv run python scripts/diagnose.py d6 || FAILED="$FAILED d6"
 sync_reports
