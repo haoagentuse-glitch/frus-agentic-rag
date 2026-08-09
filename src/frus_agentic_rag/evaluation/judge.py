@@ -38,14 +38,14 @@ class Verdict(BaseModel):
 
 SYSTEM = """You score an answer about US diplomatic history against a gold reference.
 
-The REFERENCE section contains the full text of the documents the answer was
-supposed to be based on. Judge the answer ONLY against that text.
+The REFERENCE section carries the text of the documents the answer was supposed
+to be based on. Where a document was too long to include whole it is marked
+[TRUNCATED]; treat material missing for that reason as unverified, not as false.
 
-Score 1.0 only if the answer states what the reference documents support, with
-no invented facts. Score 0.0 if it contradicts the reference, or asserts
-specifics the reference does not carry — an answer that is plausible but not
-supported by the reference scores 0.0, not a partial credit. An answer that
-hedges but gets the substance right scores 0.6-0.9.
+Score 1.0 if the answer states what the reference supports, with no invented
+facts. Score 0.0 if it CONTRADICTS the reference, or invents specifics of a kind
+the reference shows are wrong. An answer that is accurate but partial — it
+reports the document faithfully and stops short — scores 0.6-0.9, not 0.0.
 
 Reply with JSON only: {"score": <0-1>, "correct": <bool>, "reason": "<one sentence>"}"""
 
@@ -84,13 +84,22 @@ def available() -> bool:
 
 
 @lru_cache(maxsize=512)
-def gold_excerpt(document_id: str, max_chars: int = 2500) -> str:
-    """The opening text of a gold document.
+def gold_excerpt(document_id: str, max_chars: int = 60000) -> str:
+    """A gold document's text, as complete as the budget allows.
 
     The judge was previously handed bare FRUS ids such as `frus1949v07p1:d89`,
     which say nothing about what the document contains. It could only score
     fluency, and it marked answers correct that cited nothing and hit no gold
     document. Scoring against the reference requires the reference.
+
+    It then required only 2,500 characters of the first four chunks, while the
+    prompt told the judge it was reading the full text and to score 0.0 for any
+    specific the reference did not carry. Measured across the gold set the judge
+    saw 29.2% of what the model saw, and 3.4% on the worst case — so an answer
+    drawn correctly from the second half of a despatch was instructed to be
+    marked wrong. That is not strictness, it is a rubric applied to a document
+    the judge was not shown. 60,000 characters covers every gold document here
+    but the largest, and costs about a cent a sweep.
     """
     from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
 
@@ -101,7 +110,7 @@ def gold_excerpt(document_id: str, max_chars: int = 2500) -> str:
             tbl.search()
             .where(f"volume_id = '{volume_id}' AND document_id = '{doc_id}'")
             .select(["chunk_id", "head", "text", "ordinal"])
-            .limit(4)
+            .limit(200)
             .to_list()
         )
     except Exception:
@@ -110,7 +119,12 @@ def gold_excerpt(document_id: str, max_chars: int = 2500) -> str:
         return ""
     rows.sort(key=lambda r: r.get("ordinal", 0))
     head = rows[0].get("head", "")
-    body = " ".join(r["text"] for r in rows)[:max_chars]
+    joined = " ".join(r["text"] for r in rows)
+    body = joined[:max_chars]
+    if len(joined) > max_chars:
+        # Say so, so the rubric can treat the gap as unverified rather than as
+        # a fact the document contradicts.
+        body += "\n[TRUNCATED]"
     return f"[{document_id}] {head}\n{body}"
 
 
