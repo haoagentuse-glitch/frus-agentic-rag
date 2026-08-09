@@ -146,9 +146,19 @@ class Settings(BaseSettings):
     # logits shift by three units between question kinds, so a fixed floor
     # attributes everything on one kind and nothing on another.
     attribution_margin: float = 2.0
-    # A floor low enough to admit genuine support and high enough that a claim
-    # the evidence does not make stays uncited. Provisional: the (claim, chunk)
-    # distribution has not been measured the way the (question, chunk) one has.
+    # Measured, and the answer was that -6.0 does nothing. Over 29 claims the
+    # best-passage score ran 0.285 to 8.953 with a median of 4.473, so every
+    # floor up to 0.0 keeps 100% of claims: the guard has never rejected
+    # anything. The scale is nothing like the (question, chunk) one it was set
+    # by analogy with — a claim is near-verbatim from its passage, a question is
+    # not, and the medians differ by about 4.5 units.
+    #
+    # Left inert on purpose rather than raised to a filtering value. The same
+    # measurement showed the best passage was a non-gold document as often as
+    # its score was high, which is what attribution is: it finds the passage a
+    # claim came from, not the passage that is authoritative. Raising this would
+    # drop claims for being poorly worded, not for being unsupported. Verifying
+    # support is a different check and does not exist yet.
     attribution_min_score: float = -6.0
 
     # --- eval judge (optional, external) -----------------------------------
