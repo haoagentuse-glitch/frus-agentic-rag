@@ -561,7 +561,21 @@ def _gates(b0: dict, b3: dict) -> dict:
         budget_b3 is not None and budget_b0 is not None and budget_b3 > budget_b0 * 1.2
     )
 
-    passed_quality = any(g is not None and g >= 10.0 for g in (recall_gain, correctness_gain))
+    # `any` on purpose — the spec accepts either — but which one carried it has
+    # to be said. This gate reported pass=True on a run whose correctness fell
+    # 1.43pp, on the strength of retrieval recall alone, and "gate 1 passed" is
+    # read as "the system got better".
+    carried = [
+        name
+        for name, g in (("recall", recall_gain), ("correctness", correctness_gain))
+        if g is not None and g >= 10.0
+    ]
+    passed_quality = bool(carried)
+    regressed = [
+        name
+        for name, g in (("recall", recall_gain), ("correctness", correctness_gain))
+        if g is not None and g < 0
+    ]
     return {
         "1_multihop_gain_pp": {
             "recall": recall_gain,
@@ -571,6 +585,8 @@ def _gates(b0: dict, b3: dict) -> dict:
             "retrieval_calls_b0": budget_b0,
             "retrieval_calls_b3": budget_b3,
             "budget_confounded": budget_confound,
+            "passed_on": carried,
+            "regressed_on": regressed,
             "attribution_note": (
                 "B3 issues more retrievals than B0; a recall gain cannot be "
                 "attributed to planning until the budget is matched"
@@ -600,6 +616,18 @@ def _gates(b0: dict, b3: dict) -> dict:
         "4_citation_validity": {
             "citation_precision": b3.get("citation_precision"),
             "claim_coverage": b3.get("claim_citation_coverage"),
+            # SPEC.md sets no threshold here, so this is reported, not judged.
+            # Leaving `pass` at None while sitting in a list called "gates" let
+            # it be read as a gate that passed.
+            "pass": None,
+            "note": (
+                "reported only: SPEC pre-registers no threshold for citation "
+                "validity, so this is not a pass/fail gate"
+            ),
+            "claim_coverage_caveat": (
+                "under citation_mode=post_hoc the ids are attached by code, so "
+                "claim coverage measures the attribution stage, not the model"
+            ),
         },
         "5_latency": {
             "b0_p95": p95_b0,

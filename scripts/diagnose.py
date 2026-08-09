@@ -66,7 +66,9 @@ def d0(args) -> None:
                     "language": r["language"],
                     "answerable": r["answerable"],
                     "n_gold": r.get("n_gold"),
-                    "gold_in_top20": r.get("candidate_recall"),
+                    # candidate_recall is measured at candidate_k (50), not 20.
+                    # The old name said 20 and was read as 20.
+                    "gold_in_candidates_at_50": r.get("candidate_recall"),
                     "gold_in_union": r.get("agent_union_recall"),
                     "gold_accepted": r.get("accepted_recall"),
                     "gold_cited": r.get("citation_recall"),
