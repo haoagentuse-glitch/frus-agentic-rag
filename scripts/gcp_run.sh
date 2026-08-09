@@ -59,15 +59,30 @@ cmd_upload() {
     gcloud storage buckets create "$BUCKET" --project "$PROJECT" --location "${ZONE%-*}"
 
   # Source goes as a tarball rather than a git clone: it does not depend on the
-  # GitHub repo being reachable or public from the VM, and it is a few MB.
+  # GitHub repo being reachable or public from the VM.
+  #
+  # .uv-cache is the exclusion that matters. It is 5.5GB of wheels used to build
+  # the image offline, and leaving it in made the "few MB of source" a 3.0GB
+  # archive that was rebuilt and re-uploaded on every run — the reason upload
+  # kept exceeding its timeout. The VM resolves its own dependencies from
+  # uv.lock, so it never needed them.
   tar czf /tmp/frus-src.tgz \
     --exclude='.git' --exclude='data' --exclude='reports' --exclude='.venv' \
-    --exclude='__pycache__' --exclude='*.pyc' .
+    --exclude='.uv-cache' --exclude='__pycache__' --exclude='*.pyc' .
+  echo "source tarball: $(du -h /tmp/frus-src.tgz | cut -f1)"
   gcloud storage cp /tmp/frus-src.tgz "$BUCKET/src/frus-src.tgz"
 
-  echo "uploading index (7.4GB — this is the slow part)"
-  gcloud storage rsync -r data/index/lancedb "$BUCKET/data/index/lancedb"
-  gcloud storage rsync -r data/processed "$BUCKET/data/processed"
+  # The index is 7.4GB and changes only when the corpus is rebuilt, while the
+  # source changes every commit. Re-listing both sides of 7.4GB through a
+  # gcloud running across /mnt/c takes longer than the upload it then skips, so
+  # a source-only push is the common case.
+  if [[ "${GCP_SKIP_INDEX:-0}" == "1" ]]; then
+    echo "skipping index (GCP_SKIP_INDEX=1)"
+  else
+    echo "uploading index (7.4GB — this is the slow part; GCP_SKIP_INDEX=1 to skip)"
+    gcloud storage rsync -r data/index/lancedb "$BUCKET/data/index/lancedb"
+    gcloud storage rsync -r data/processed "$BUCKET/data/processed"
+  fi
   gcloud storage cp eval/gold_cases.jsonl "$BUCKET/eval/gold_cases.jsonl"
   # The reduced set the diagnostics iterate on. Full set stays for the final
   # B3-vs-B4 comparison; see docs/HANDOVER.md section 0.
