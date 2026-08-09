@@ -1,0 +1,290 @@
+{
+  "full_case_langs": 70,
+  "zero_variance_dropped": 28,
+  "informative": 42,
+  "selected_case_langs": 20,
+  "selected_cases": 17,
+  "configs_compared": 20,
+  "max_abs_error_pp": 7.29,
+  "rank_agreement_all": 0.8684,
+  "rank_agreement_decisive_3pp": 1.0,
+  "fidelity_curve": [
+    {
+      "case_langs": 11,
+      "speedup": 6.36,
+      "max_err_pp": 19.49,
+      "rank_all": 0.642,
+      "rank_decisive_3pp": 0.653,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 12,
+      "speedup": 5.83,
+      "max_err_pp": 17.01,
+      "rank_all": 0.621,
+      "rank_decisive_3pp": 0.673,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 13,
+      "speedup": 5.38,
+      "max_err_pp": 17.01,
+      "rank_all": 0.674,
+      "rank_decisive_3pp": 0.772,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 14,
+      "speedup": 5.0,
+      "max_err_pp": 17.01,
+      "rank_all": 0.679,
+      "rank_decisive_3pp": 0.762,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 15,
+      "speedup": 4.67,
+      "max_err_pp": 17.01,
+      "rank_all": 0.695,
+      "rank_decisive_3pp": 0.792,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 16,
+      "speedup": 4.38,
+      "max_err_pp": 13.36,
+      "rank_all": 0.716,
+      "rank_decisive_3pp": 0.812,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 17,
+      "speedup": 4.12,
+      "max_err_pp": 12.34,
+      "rank_all": 0.768,
+      "rank_decisive_3pp": 0.881,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 18,
+      "speedup": 3.89,
+      "max_err_pp": 12.34,
+      "rank_all": 0.832,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 19,
+      "speedup": 3.68,
+      "max_err_pp": 10.08,
+      "rank_all": 0.826,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 20,
+      "speedup": 3.5,
+      "max_err_pp": 7.29,
+      "rank_all": 0.868,
+      "rank_decisive_3pp": 1.0,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 21,
+      "speedup": 3.33,
+      "max_err_pp": 6.33,
+      "rank_all": 0.842,
+      "rank_decisive_3pp": 0.98,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 22,
+      "speedup": 3.18,
+      "max_err_pp": 5.82,
+      "rank_all": 0.811,
+      "rank_decisive_3pp": 0.95,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 23,
+      "speedup": 3.04,
+      "max_err_pp": 5.05,
+      "rank_all": 0.858,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 24,
+      "speedup": 2.92,
+      "max_err_pp": 5.05,
+      "rank_all": 0.826,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 25,
+      "speedup": 2.8,
+      "max_err_pp": 5.05,
+      "rank_all": 0.779,
+      "rank_decisive_3pp": 0.921,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 26,
+      "speedup": 2.69,
+      "max_err_pp": 5.2,
+      "rank_all": 0.821,
+      "rank_decisive_3pp": 0.96,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 27,
+      "speedup": 2.59,
+      "max_err_pp": 5.05,
+      "rank_all": 0.826,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 28,
+      "speedup": 2.5,
+      "max_err_pp": 5.5,
+      "rank_all": 0.8,
+      "rank_decisive_3pp": 0.941,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 29,
+      "speedup": 2.41,
+      "max_err_pp": 5.05,
+      "rank_all": 0.763,
+      "rank_decisive_3pp": 0.941,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 30,
+      "speedup": 2.33,
+      "max_err_pp": 5.43,
+      "rank_all": 0.758,
+      "rank_decisive_3pp": 0.921,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 31,
+      "speedup": 2.26,
+      "max_err_pp": 5.05,
+      "rank_all": 0.863,
+      "rank_decisive_3pp": 1.0,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 32,
+      "speedup": 2.19,
+      "max_err_pp": 5.13,
+      "rank_all": 0.826,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 33,
+      "speedup": 2.12,
+      "max_err_pp": 6.6,
+      "rank_all": 0.816,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 34,
+      "speedup": 2.06,
+      "max_err_pp": 7.58,
+      "rank_all": 0.816,
+      "rank_decisive_3pp": 0.97,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 35,
+      "speedup": 2.0,
+      "max_err_pp": 6.43,
+      "rank_all": 0.853,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 36,
+      "speedup": 1.94,
+      "max_err_pp": 4.96,
+      "rank_all": 0.858,
+      "rank_decisive_3pp": 1.0,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 37,
+      "speedup": 1.89,
+      "max_err_pp": 6.27,
+      "rank_all": 0.884,
+      "rank_decisive_3pp": 1.0,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 38,
+      "speedup": 1.84,
+      "max_err_pp": 7.52,
+      "rank_all": 0.884,
+      "rank_decisive_3pp": 1.0,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 39,
+      "speedup": 1.79,
+      "max_err_pp": 7.58,
+      "rank_all": 0.863,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 40,
+      "speedup": 1.75,
+      "max_err_pp": 7.32,
+      "rank_all": 0.847,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 41,
+      "speedup": 1.71,
+      "max_err_pp": 7.66,
+      "rank_all": 0.895,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 42,
+      "speedup": 1.67,
+      "max_err_pp": 7.14,
+      "rank_all": 0.926,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    },
+    {
+      "case_langs": 43,
+      "speedup": 1.63,
+      "max_err_pp": 8.22,
+      "rank_all": 0.963,
+      "rank_decisive_3pp": 0.99,
+      "decisive_pairs": 101
+    }
+  ],
+  "speedup": 3.5,
+  "kinds": {
+    "correction": 2,
+    "correction_matched": 5,
+    "lookup": 6,
+    "multihop": 3,
+    "unanswerable": 4
+  },
+  "languages": {
+    "zh-TW": 10,
+    "en": 10
+  },
+  "unanswerable": 4
+}
