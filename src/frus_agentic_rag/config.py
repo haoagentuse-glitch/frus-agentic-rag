@@ -130,6 +130,12 @@ class Settings(BaseSettings):
     # rule has to beat before its complexity is worth carrying.
     score_max_per_hop: int | None = None
 
+    # D4: widen each surviving passage with its neighbours inside the same
+    # document before synthesis. Cheap because the chunks are already indexed —
+    # no re-embedding, no new index — which is why it is tried before late
+    # chunking or contextual retrieval, both of which need a full rebuild.
+    context_expand_neighbours: int = 0
+
     # --- citation attribution ------------------------------------------------
     # "post_hoc": the model writes claims, the cross-encoder attaches the ids.
     # "model": the old scheme, where the model copies ids verbatim — kept only

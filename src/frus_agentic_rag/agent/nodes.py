@@ -241,6 +241,9 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             # signal: only a cross-encoder rank means the reordering happened.
             reranked = rr.available() and any(e.rank_rerank is not None for e in merged)
 
+        if settings.context_expand_neighbours:
+            merged = await _expand_neighbours(tb, merged, settings.context_expand_neighbours)
+
         # After ordering, before anything reads the text. The grader's 700-char
         # window and the synthesiser's 950 then spend their budget on the
         # sentences that matter rather than on whatever opened the passage.
@@ -268,6 +271,31 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             "retrieval_rounds": state.get("retrieval_rounds", 0) + 1,
             "trace": [ev],
         }
+
+
+async def _expand_neighbours(tb, evidence: list, width: int) -> list:
+    """Add each passage's neighbours from the same document, keeping order.
+
+    The retrieval unit is a 512-token chunk and the citable unit is a document;
+    a fact can sit one chunk away from the passage that matched. Neighbours
+    inherit the score of the chunk that pulled them in so ranking is unchanged,
+    and they are inserted next to it so the model reads the document in order.
+    """
+    out: list = []
+    seen: set[str] = {e.evidence_id for e in evidence}
+    for e in evidence:
+        out.append(e)
+        try:
+            adj = await tb.get_adjacent_context(e.evidence_id)
+        except Exception:
+            continue
+        for a in adj[: width * 2]:
+            if a.evidence_id in seen:
+                continue
+            seen.add(a.evidence_id)
+            # Just below its anchor: a neighbour is context, not a hit.
+            out.append(a.model_copy(update={"score": e.score - 1e-6, "hop": e.hop}))
+    return out
 
 
 def _merge(existing: list, fresh: list) -> list:

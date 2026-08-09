@@ -69,6 +69,10 @@ cmd_upload() {
   gcloud storage rsync -r data/index/lancedb "$BUCKET/data/index/lancedb"
   gcloud storage rsync -r data/processed "$BUCKET/data/processed"
   gcloud storage cp eval/gold_cases.jsonl "$BUCKET/eval/gold_cases.jsonl"
+  # The reduced set the diagnostics iterate on. Full set stays for the final
+  # B3-vs-B4 comparison; see docs/HANDOVER.md section 0.
+  [[ -f eval/gold_cases_core.jsonl ]] &&
+    gcloud storage cp eval/gold_cases_core.jsonl "$BUCKET/eval/gold_cases_core.jsonl"
 
   # The judge key. Without it `frus eval` records judge: unavailable and the run
   # produces every deterministic metric but no answer correctness — which is one
@@ -191,6 +195,7 @@ mkdir -p data/index data/processed eval reports
 gcloud storage rsync -r "$BUCKET/data/index/lancedb" data/index/lancedb
 gcloud storage rsync -r "$BUCKET/data/processed" data/processed
 gcloud storage cp "$BUCKET/eval/gold_cases.jsonl" eval/gold_cases.jsonl
+gcloud storage cp "$BUCKET/eval/gold_cases_core.jsonl" eval/gold_cases_core.jsonl || true
 if gcloud storage cp "$BUCKET/secrets/judge.env" /tmp/judge.env 2>/dev/null; then
   set -a; . /tmp/judge.env; set +a; rm -f /tmp/judge.env
 fi
@@ -273,21 +278,36 @@ finish() {
 FAILED=""
 
 
-# 1. Score distribution over the full gold set. Retrieval only, no LLM, minutes.
-#    Everything downstream depends on these numbers, so it runs first.
-uv run python scripts/score_distribution.py
+# The D-series. Diagnosis before the next version: each step changes one thing
+# and the cheap ones run first, so an expensive index rebuild is only paid for
+# once something has been shown to need it.
+
+# D0 and D6 read records that already exist — no model, seconds.
+uv run python scripts/diagnose.py d0 || FAILED="$FAILED d0"
+uv run python scripts/diagnose.py d6 || FAILED="$FAILED d6"
 sync_reports
 
-# 2. The three filtering strategies from docs/HANDOVER.md 3.2, fixed top-k
-#    first as the baseline the adaptive rules have to beat.
-run_variant() {  # name, then FRUS_* assignments
+# D2: the gold documents handed straight to the generator, no retrieval at all.
+# The most informative experiment available and nearly free — it separates
+# "the pipeline did not deliver the evidence" from "the model cannot use it",
+# and that answer decides whether any retrieval work is worth doing.
+uv run python scripts/diagnose.py d2 || FAILED="$FAILED d2"
+sync_reports
+
+# D3: the same gold evidence through a larger generator, only on what D2 still
+# got wrong. Never re-retrieves, so retrieval noise cannot decide which model
+# looks better.
+ollama pull qwen3:8b || true
+uv run python scripts/diagnose.py d3 --models qwen3:4b-instruct,qwen3:8b || FAILED="$FAILED d3"
+sync_reports
+
+# D1 and D4 go through the normal evaluator, on the reduced case set: ten cases
+# preserve every ordering the full set separates by more than 3pp, at 3.5x the
+# speed. The full set is for the final B3-vs-B4 comparison, not for diagnosis.
+CORE="--cases eval/gold_cases_core.jsonl"
+run_variant() {
   local name=$1; shift
-  # PIPESTATUS, not the pipeline's status: `| tail` would otherwise mask a
-  # failed eval behind tail's success.
-  # --systems explicitly: the CLI default omits B0-2step, and the fixed
-  # two-step pipeline is the baseline the whole ablation is measured against.
-  ( export "$@"; uv run frus eval --no-resume \
-      --systems B0-2step,B0,B1,B2,B3 ) 2>&1 | tail -40
+  ( export "$@"; uv run frus eval --no-resume $CORE --systems B0-2step,B0,B1,B2,B3 ) 2>&1 | tail -30
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo "VARIANT FAILED: $name"
     FAILED="$FAILED $name"
@@ -297,24 +317,17 @@ run_variant() {  # name, then FRUS_* assignments
   rm -f reports/ablation_runs.jsonl
   sync_reports
 }
-#    The numbers come from reports/score_distribution.json over all 35 cases,
-#    not from intuition. margin=4.3 is the largest top-score-to-deepest-gold gap
-#    observed on any question (p90 3.50, p95 3.96, max 4.28), so it keeps every
-#    gold passage retrieval found. min=3 covers the first gold for 75% of
-#    questions; the rank-15 worst case is what max=8 trades away deliberately.
-run_variant A_fixed_topk     FRUS_SCORE_MIN_PER_HOP=5 FRUS_SCORE_MAX_PER_HOP=5
-run_variant B_min_margin     FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3
-run_variant C_min_margin_max FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 FRUS_SCORE_MAX_PER_HOP=8
 
-# 3. Sentence focus is currently applied to every system, so it is only
-#    measurable as a paired run against itself with focus off.
-run_variant C_focus_off FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
-  FRUS_SCORE_MAX_PER_HOP=8 FRUS_FOCUS_SENTENCES=false
+# Frozen baseline. Everything below differs from it by exactly one setting.
+run_variant D_base            FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3
+# D1: the old scheme, where the model copies ids verbatim.
+run_variant D1_model_citation FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
+  FRUS_CITATION_MODE=model
+# D4: each surviving passage widened with its neighbours in the same document.
+run_variant D4_neighbours     FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
+  FRUS_CONTEXT_EXPAND_NEIGHBOURS=1
 
-if [[ -n "$FAILED" ]]; then
-  echo "RUNS FINISHED WITH FAILURES:$FAILED"
-else
-  echo "ALL RUNS COMPLETE"
+echo "ALL RUNS COMPLETE"
 fi
 sync_reports
 push_log
