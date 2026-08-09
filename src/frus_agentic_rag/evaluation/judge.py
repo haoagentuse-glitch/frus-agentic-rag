@@ -25,8 +25,13 @@ _SCORE_RE = re.compile(r'"score"\s*:\s*([0-9.]+)')
 
 
 class Verdict(BaseModel):
-    score: float  # 0.0 - 1.0
-    correct: bool
+    # None when the judge could not reach a verdict. A failed call used to score
+    # 0.0, which averages in as "answered wrongly": one ablation variant
+    # exhausted the Gemini daily quota partway through, recorded 195 errors as
+    # zeros, and reported a correctness of 0.000 that looked like a catastrophic
+    # regression rather than a missing measurement.
+    score: float | None  # 0.0 - 1.0, or None if unjudged
+    correct: bool | None
     reason: str = ""
     judge: str = "gemini"
 
@@ -125,9 +130,12 @@ async def judge_answer(
             judge="deterministic",
         )
     if not available():
+        # Also None, for the same reason: a run without a key has not measured
+        # correctness, and reporting it as zero understates every system equally
+        # while looking like a result.
         return Verdict(
-            score=0.0,
-            correct=False,
+            score=None,
+            correct=None,
             reason="no GEMINI_API_KEY configured",
             judge="unavailable",
         )
@@ -165,7 +173,7 @@ async def judge_answer(
     if not text:
         # str(ReadTimeout) is empty, so the class name has to carry the diagnosis.
         detail = f"{type(last_exc).__name__}: {last_exc}".rstrip(": ")
-        return Verdict(score=0.0, correct=False, reason=f"judge error: {detail}", judge="error")
+        return Verdict(score=None, correct=None, reason=f"judge error: {detail}", judge="error")
 
     try:
         data = json.loads(text)
@@ -173,7 +181,7 @@ async def judge_answer(
         m = _SCORE_RE.search(text)
         if not m:
             return Verdict(
-                score=0.0, correct=False, reason="unparseable judge reply", judge="error"
+                score=None, correct=None, reason="unparseable judge reply", judge="error"
             )
         data = {"score": float(m.group(1)), "correct": float(m.group(1)) >= 0.5}
     score = max(0.0, min(1.0, float(data.get("score", 0.0))))

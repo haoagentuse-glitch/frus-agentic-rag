@@ -1,0 +1,18 @@
+{
+  "collection": "ms_frus_agenticrag_bb2fa908",
+  "failed_files": [],
+  "indexed_chunks": 0,
+  "indexed_files": 0,
+  "last_completed_at": "2026-08-09T10:39:19.249374Z",
+  "last_started_at": "2026-08-09T10:39:16.592301Z",
+  "last_success_at": "2026-08-09T10:39:19.249374Z",
+  "milvus_uri": "~/.memsearch/milvus.db",
+  "operation": "index",
+  "paths": [
+    "/home/haoche_nitro_v15/FRUS_agenticRAG/.memsearch/memory"
+  ],
+  "schema_version": 1,
+  "status": "ok",
+  "total_files": 0,
+  "updated_at": "2026-08-09T10:39:19.249374Z"
+}
