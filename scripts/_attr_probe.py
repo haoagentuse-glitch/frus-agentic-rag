@@ -17,7 +17,7 @@ CASES = "eval/gold_cases_core.jsonl"
 
 
 async def main():
-    cases = [json.loads(x) for x in open(CASES) if x.strip()]
+    cases = [json.loads(x) for x in Path(CASES).read_text().splitlines() if x.strip()]
     cases = [c for c in cases if c.get("answerable", True)][:6]
     best_gold, best_other, all_scores = [], [], []
     for n, c in enumerate(cases, 1):
@@ -63,7 +63,8 @@ async def main():
     for t in (-6.0, -4.0, -2.0, 0.0, 2.0):
         kept = sum(1 for s in all_scores if s >= t)
         print(
-            f"   min_score={t:5.1f} -> 保留 {kept:3d}/{len(all_scores)} ({kept / len(all_scores):.0%}) 的主張"
+            f"   min_score={t:5.1f} -> 保留 {kept:3d}/{len(all_scores)} "
+            f"({kept / len(all_scores):.0%}) 的主張"
         )
 
 
