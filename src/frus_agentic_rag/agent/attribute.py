@@ -13,10 +13,14 @@ the cross-encoder that already ranked the passages then scores each claim
 against each accepted passage and code attaches the ids. A claim can no longer
 cite something that was not retrieved, because the model never names anything.
 
-What this does not do is manufacture support. A claim whose best passage scores
-below the floor gets no citation and is dropped by the gate — that is a real
-"the evidence does not say this" signal and it has to survive, or the system
-would cite its way out of every hallucination.
+What this does NOT do is check that the passage supports the claim. It attaches
+the passage a claim most resembles, which is the passage it was written from —
+so a claim that over-reads its source scores against that source highly. A
+score floor was tried and removed: measured over 29 claims the best-passage
+score never fell below 0.285, and no threshold separates "written from this
+passage" from "entailed by this passage", because the score does not encode the
+difference. Every claim therefore gets a citation, and the citation means
+provenance, not verification. An entailment stage would be the honest fix.
 """
 
 from __future__ import annotations
@@ -60,7 +64,6 @@ def attribute(claims: list[Claim], evidence: list[Evidence]) -> tuple[list[Claim
         return claims, record
 
     out: list[Claim] = []
-    unsupported = 0
     best_scores: list[float] = []
     n = len(evidence)
     for i, c in enumerate(claims):
@@ -68,10 +71,6 @@ def attribute(claims: list[Claim], evidence: list[Evidence]) -> tuple[list[Claim
         ranked = sorted(zip(evidence, row, strict=True), key=lambda x: x[1], reverse=True)
         best = ranked[0][1]
         best_scores.append(round(float(best), 4))
-        if best < settings.attribution_min_score:
-            unsupported += 1
-            out.append(Claim(text=c.text, evidence_ids=[]))
-            continue
         keep = [
             e.evidence_id
             for e, s in ranked[: settings.attribution_top_k]
@@ -81,10 +80,8 @@ def attribute(claims: list[Claim], evidence: list[Evidence]) -> tuple[list[Claim
 
     record.update(
         {
-            "attributed": len(out) - unsupported,
-            "unsupported": unsupported,
+            "attributed": len(out),
             "best_scores": best_scores,
-            "min_score": settings.attribution_min_score,
             "margin": settings.attribution_margin,
             # Kept so the two schemes can be compared on the same run rather
             # than across two sweeps.

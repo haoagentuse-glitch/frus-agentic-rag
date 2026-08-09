@@ -146,20 +146,17 @@ class Settings(BaseSettings):
     # logits shift by three units between question kinds, so a fixed floor
     # attributes everything on one kind and nothing on another.
     attribution_margin: float = 2.0
-    # Measured, and the answer was that -6.0 does nothing. Over 29 claims the
-    # best-passage score ran 0.285 to 8.953 with a median of 4.473, so every
-    # floor up to 0.0 keeps 100% of claims: the guard has never rejected
-    # anything. The scale is nothing like the (question, chunk) one it was set
-    # by analogy with — a claim is near-verbatim from its passage, a question is
-    # not, and the medians differ by about 4.5 units.
+    # There is deliberately no support threshold here, and that is a gap worth
+    # stating rather than papering over. A floor was tried at -6.0; measured
+    # over 29 claims the best-passage score ran 0.285 to 8.953, so it never
+    # rejected anything and no value would have helped. The reason is not
+    # calibration: the cross-encoder finds the passage a claim was written FROM,
+    # so a claim invented by over-reading a passage scores against that passage
+    # highly. It measures provenance, not support.
     #
-    # Left inert on purpose rather than raised to a filtering value. The same
-    # measurement showed the best passage was a non-gold document as often as
-    # its score was high, which is what attribution is: it finds the passage a
-    # claim came from, not the passage that is authoritative. Raising this would
-    # drop claims for being poorly worded, not for being unsupported. Verifying
-    # support is a different check and does not exist yet.
-    attribution_min_score: float = -6.0
+    # So this pipeline currently checks that every claim has a source, and does
+    # not check that the source says it. Closing that needs an entailment check
+    # (claim vs passage, NLI-style), which is a separate stage, not a number.
 
     # --- eval judge (optional, external) -----------------------------------
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")

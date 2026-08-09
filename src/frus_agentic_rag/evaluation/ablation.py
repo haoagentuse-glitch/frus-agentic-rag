@@ -39,6 +39,19 @@ def _recall(gold: set[str], got: set[str]) -> float | None:
 
 
 def _precision(gold: set[str], got: set[str]) -> float | None:
+    """Share of cited documents that are gold.
+
+    Not a measure of whether a citation is apt — gold lists hold one to three
+    documents out of 306,016 and are machine-drafted, so citing a genuinely
+    relevant document that is not on the list counts against this. What it is
+    for is bounding the size of the citation set: recall alone is maximised by
+    citing everything, and with up to three passages attached per claim that is
+    a reachable failure. Precision is the term that makes it cost something.
+
+    It therefore only compares within one citation scheme. Changing
+    attribution_top_k changes the denominator mechanically, so the old
+    model-written-id runs and the post-hoc runs are not comparable on it.
+    """
     return len(gold & got) / len(got) if got and gold else None
 
 
