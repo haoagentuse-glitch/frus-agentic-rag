@@ -232,7 +232,8 @@ def main() -> None:
     print("\nper-configuration mean, full vs subset:")
     for c in sorted(configs, key=lambda c: -full[c]):
         print(
-            f"  {c:34s} full={full[c]:.3f}  subset={sub[c]:.3f}  diff={(sub[c] - full[c]) * 100:+6.2f}pp"
+            f"  {c:34s} full={full[c]:.3f}  subset={sub[c]:.3f}"
+            f"  diff={(sub[c] - full[c]) * 100:+6.2f}pp"
         )
 
 
