@@ -66,6 +66,17 @@ class EvidenceGrade(BaseModel):
     overall: HopVerdict
 
 
+class ClaimVerdict(BaseModel):
+    index: int
+    supported: bool
+
+
+class ClaimSupport(BaseModel):
+    # One verdict per claim. Bounded like every other list here: an unbounded
+    # array made the grammar-constrained decoder run to 14,000 tokens.
+    claims: list[ClaimVerdict] = Field(default_factory=list, max_length=20)
+
+
 class DraftClaim(BaseModel):
     text: str
     evidence_ids: list[str] = Field(default_factory=list, max_length=5)

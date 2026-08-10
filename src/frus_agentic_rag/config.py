@@ -142,6 +142,12 @@ class Settings(BaseSettings):
     # so the two can be compared on the same gold set.
     citation_mode: Literal["post_hoc", "model"] = "post_hoc"
     attribution_top_k: int = 3
+    # The check attribution cannot do: whether the attached passage states the
+    # claim. Costs one LLM call for the whole answer, taking B3 from three to
+    # four. Measured against the grounding probe, which put fabrication at 58%
+    # without it.
+    entailment_check: bool = True
+    entailment_max_chars: int = 900
     # Relative, like the evidence filter and for the same measured reason: the
     # logits shift by three units between question kinds, so a fixed floor
     # attributes everything on one kind and nothing on another.

@@ -1,7 +1,7 @@
 {
   "criterion": "with the answer withheld the system must abstain; answering is fabrication",
-  "abstention_rate": 0.417,
-  "fabrications": 7,
+  "abstention_rate": 0.75,
+  "fabrications": 3,
   "excluded_for_leak": 0,
   "pass": false,
   "rows": [
@@ -43,23 +43,23 @@
       "outcome": "answer",
       "abstained": false,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "The FRUS document titled 'No. 699.To diplomatic and consular officers abroad.' dated 1887-02-08 is not present in the provided evidence. The evidence includes a"
+      "answer_head": "The FRUS document titled 'No. 699. To diplomatic and consular officers abroad.' dated 1887-02-08 is not present in the provided evidence. The evidence includes "
     },
     {
       "case_id": "p1-02",
       "language": "zh-TW",
-      "outcome": "answer",
-      "abstained": false,
+      "outcome": "abstain",
+      "abstained": true,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "FRUS 中標題為「No. 699.To diplomatic and consular officers abroad.」、日期為 1887-02-08 的文件並未在提供的證據中出現。所有日期為 1887-02-08 的文件標題為 No. 146 或 No. 309，分別為 Mr. Denby to Mr. Baya"
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
     },
     {
       "case_id": "p1-03",
       "language": "en",
-      "outcome": "answer",
-      "abstained": false,
+      "outcome": "abstain",
+      "abstained": true,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "There is no FRUS document titled 'No. 185.Mr. Frelinghuysen to Mr. Sargent.' dated 1883-03-14 in the provided evidence. The document titled 'No. 184.Mr. Freling"
+      "answer_head": "The retrieved FRUS documents do not support a grounded answer. FRUS covers only published volumes of declassified US diplomatic records; a topic in an unpublish"
     },
     {
       "case_id": "p1-03",
@@ -67,7 +67,7 @@
       "outcome": "answer",
       "abstained": false,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "FRUS 中標題為「No. 185.Mr. Frelinghuysen to Mr. Sargent.」、日期為 1883-03-14 的文件並不存在於提供的證據中。所有標題為「No. 185」的文件記錄均未出現。在日期為 1883-03-14 的文件中，僅有標題為「No. 184.Mr. Frelinghuysen "
+      "answer_head": "FRUS 中標題為「No. 185.Mr. Frelinghuysen to Mr. Sargent.」、日期為 1883-03-14 的文件並未在提供的證據中出現。所有標題為 1883-03-14 的文件包括：No. 183.Mr. Sargent to Mr. Frelinghuysen、No. 184.Mr. F"
     },
     {
       "case_id": "p1-04",
@@ -80,10 +80,10 @@
     {
       "case_id": "p1-04",
       "language": "zh-TW",
-      "outcome": "answer",
-      "abstained": false,
+      "outcome": "abstain",
+      "abstained": true,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "FRUS 中標題為「The Secretary of State to the agents of the Sandwich Islands.」、日期為 1842-12-19 的文件是 Hon. Daniel Webster 致 Hawaiian commissioners Richards and Haalilio "
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
     },
     {
       "case_id": "p1-05",
@@ -96,10 +96,10 @@
     {
       "case_id": "p1-05",
       "language": "zh-TW",
-      "outcome": "answer",
-      "abstained": false,
+      "outcome": "abstain",
+      "abstained": true,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "FRUS 中標題為「No. 88.Mr. Evarts to Mr. Torreão de Barros.」、日期為 1880-01-30 的文件並未在提供的證據中出現。所有標題為 1880-01-30 的文件皆為「No. 149.Mr. Seward to Mr. Evarts.」，並無提及「No. 88.Mr. E"
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
     }
   ]
 }

@@ -556,6 +556,14 @@ async def validate_citations(state: AgentState) -> dict:
 
         claims = [Claim(**c) for c in state.get("claims", [])]
         evidence = state.get("evidence", [])
+
+        # Entailment runs before the gate, so an unsupported claim arrives with
+        # no citation and is dropped by the machinery that already exists.
+        from frus_agentic_rag.agent.verify import verify
+
+        claims, verification = await verify(
+            claims, evidence, state.get("llm_calls", 0)
+        )
         # Pass the list through as-is: grade_evidence always populates it (with
         # every id, for the ungraded systems), so an empty list here genuinely
         # means nothing was accepted.
@@ -580,6 +588,7 @@ async def validate_citations(state: AgentState) -> dict:
             "claims_kept": len(surviving),
             "claims_dropped": len(claims) - len(surviving),
             "reasons": reasons[:8],
+            "entailment": verification,
         }
         if errors:
             return {

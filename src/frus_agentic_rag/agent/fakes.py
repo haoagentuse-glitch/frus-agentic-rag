@@ -10,7 +10,15 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from frus_agentic_rag.agent.schemas import AgentAnswer, EvidenceGrade, HopGrade, QueryPlan, SubQuery
+from frus_agentic_rag.agent.schemas import (
+    AgentAnswer,
+    ClaimSupport,
+    ClaimVerdict,
+    EvidenceGrade,
+    HopGrade,
+    QueryPlan,
+    SubQuery,
+)
 from frus_agentic_rag.models import Evidence, SearchFilters
 
 
@@ -104,6 +112,8 @@ class FakeClient:
     n_subqueries: int = 1
     grade_sequence: list[str] = field(default_factory=lambda: ["supported"])
     claim_ids: list[str] | None = None
+    # Whether the fake entailment check backs the claims it is shown.
+    claims_supported: bool = True
     calls: int = 0
     _grade_i: int = 0
     seen: list[str] = field(default_factory=list)
@@ -143,6 +153,12 @@ class FakeClient:
                     )
                 ],
                 overall=verdict,  # type: ignore[arg-type]
+            )
+        if schema is ClaimSupport:
+            self.seen.append("verify")
+            n = user.count("CLAIM ")
+            return ClaimSupport(
+                claims=[ClaimVerdict(index=i, supported=self.claims_supported) for i in range(n)]
             )
         if schema is AgentAnswer:
             self.seen.append("synth")
