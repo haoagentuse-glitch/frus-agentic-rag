@@ -2,7 +2,7 @@
   "criterion": "accuracy >= 0.80 here AND >= 0.80 on the held-out set",
   "accuracy": 1.0,
   "phrasing_consistency": 1.0,
-  "held_out_accuracy": 0.6,
+  "held_out_accuracy": null,
   "tuning_warning": "these questions were read while editing the planner prompt; held_out_accuracy is the honest number",
   "pass": false,
   "rows": [

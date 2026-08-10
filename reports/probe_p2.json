@@ -1,7 +1,7 @@
 {
   "criterion": "reordering the same evidence must not change which people are named",
   "actor_set_stability": 0.333,
-  "mean_overlap": 0.639,
+  "mean_overlap": 0.444,
   "pass": false,
   "rows": [
     {
@@ -19,16 +19,16 @@
         "Mr. Cridland",
         "Mr. Mason"
       ],
-      "actors_reverse": [
-        "Mr. Mason"
-      ],
+      "actors_reverse": [],
       "same_actor_set": false,
-      "actor_overlap": 0.5
+      "actor_overlap": 0.0
     },
     {
       "case_id": "p2-03",
       "chunks": 6,
-      "actors_forward": [],
+      "actors_forward": [
+        "Mr. Scanlan"
+      ],
       "actors_reverse": [
         "Mr. Sargent"
       ],
@@ -58,12 +58,9 @@
         "Mr. Sidi",
         "Mr. Wallace"
       ],
-      "actors_reverse": [
-        "Mr. Sidi",
-        "Mr. Wallace"
-      ],
+      "actors_reverse": [],
       "same_actor_set": false,
-      "actor_overlap": 0.667
+      "actor_overlap": 0.0
     },
     {
       "case_id": "p2-07",

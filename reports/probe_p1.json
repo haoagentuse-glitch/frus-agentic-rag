@@ -1,7 +1,7 @@
 {
   "criterion": "with the answer withheld the system must abstain; answering is fabrication",
-  "abstention_rate": 0.75,
-  "fabrications": 3,
+  "abstention_rate": 0.583,
+  "fabrications": 5,
   "excluded_for_leak": 0,
   "pass": false,
   "rows": [
@@ -48,10 +48,10 @@
     {
       "case_id": "p1-02",
       "language": "zh-TW",
-      "outcome": "abstain",
-      "abstained": true,
+      "outcome": "answer",
+      "abstained": false,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+      "answer_head": "FRUS 中標題為「No. 699.To diplomatic and consular officers abroad.」、日期為 1887-02-08 的文件並未在提供的證據中出現。所有日期為 1887-02-08 的文件標題為 No. 146 和 No. 147，分別為 Mr. Denby to Mr. Baya"
     },
     {
       "case_id": "p1-03",
@@ -96,10 +96,10 @@
     {
       "case_id": "p1-05",
       "language": "zh-TW",
-      "outcome": "abstain",
-      "abstained": true,
+      "outcome": "answer",
+      "abstained": false,
       "gold_leaked_into_retrieval": false,
-      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+      "answer_head": "FRUS 中標題為「No. 88.Mr. Evarts to Mr. Torreão de Barros.」、日期為 1880-01-30 的文件並未在提供的證據中出現。所有標題為 1880-01-30 的文件皆為「No. 149.Mr. Seward to Mr. Evarts.」，並無提及「No. 88.Mr. E"
     }
   ]
 }
