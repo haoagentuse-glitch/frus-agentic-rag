@@ -237,4 +237,5 @@ def main() -> None:
         )
 
 
+Path("reports").mkdir(exist_ok=True)
 main()

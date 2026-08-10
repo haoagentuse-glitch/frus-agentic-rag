@@ -155,4 +155,5 @@ async def main() -> None:
     )
 
 
+Path("reports").mkdir(exist_ok=True)
 asyncio.run(main())

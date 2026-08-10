@@ -115,4 +115,5 @@ async def main() -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+Path("reports").mkdir(exist_ok=True)
 asyncio.run(main())

@@ -123,7 +123,11 @@ class Settings(BaseSettings):
     # `scripts/score_distribution.py`, read the report, then set these. Until
     # then selection keeps everything and records what it would have done.
     score_keep_absolute: float | None = None
-    score_keep_margin: float | None = None
+    # 4.3 is the largest gap measured between a question's best passage and its
+    # deepest gold one, over 35 cases — so it keeps every gold passage retrieval
+    # found. The absolute floor stays off: gold and non-gold overlap so heavily
+    # that a floor holding all gold keeps 74.8% of everything.
+    score_keep_margin: float | None = 4.3
     score_min_per_hop: int = 3
     # Upper bound on what survives, per hop. With min and max set equal and no
     # margin, selection degenerates to fixed top-k — the baseline any adaptive

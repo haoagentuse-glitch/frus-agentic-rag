@@ -173,4 +173,5 @@ async def main() -> None:
     print(json.dumps({k: v for k, v in summary.items() if k != "rows"}, indent=2))
 
 
+Path("reports").mkdir(exist_ok=True)
 asyncio.run(main())

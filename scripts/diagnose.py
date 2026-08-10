@@ -403,4 +403,5 @@ def main() -> None:
         asyncio.run({"d2": d2, "d3": d3}[args.cmd](args))
 
 
+Path("reports").mkdir(exist_ok=True)
 main()

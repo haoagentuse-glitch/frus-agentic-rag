@@ -1,10 +1,9 @@
 .env
 .env.local
 data/
-# reports/*.json are tracked on purpose: they are the evidence for every number
-# the README claims. Only the raw per-run dump and logs are too noisy to keep.
-reports/ablation_runs.jsonl
-reports/*.log
+# Regenerable. The evidence behind every number in docs/REPORT.md is in
+# archive/experiments-2026-08.tar.gz, which IS tracked.
+reports/
 *.lance/
 *.parquet
 .venv/
