@@ -142,11 +142,27 @@ class Settings(BaseSettings):
     # so the two can be compared on the same gold set.
     citation_mode: Literal["post_hoc", "model"] = "post_hoc"
     attribution_top_k: int = 3
-    # The check attribution cannot do: whether the attached passage states the
-    # claim. Costs one LLM call for the whole answer, taking B3 from three to
-    # four. Measured against the grounding probe, which put fabrication at 58%
-    # without it.
-    entailment_check: bool = True
+    # OFF, because the verifier was measured and it does not work. Given
+    # sentences taken verbatim from the passage they came from — the easiest
+    # possible positive, since a passage entails its own sentences — it answered
+    # "not supported" 70% of the time. It never accepted an unrelated sentence,
+    # so it is not lax; it rejects almost everything. The grounding probe's
+    # apparent improvement (7 fabrications to 3) came from indiscriminate
+    # rejection, not from verification, which is why shipping it on by default
+    # would have been shipping a number rather than a fix.
+    #
+    # The stage stays: the gap it addresses is real and the machinery is right.
+    # What it needs is a verifier that works, and the measurement points at one.
+    # On the same probe qwen3:8b scores 0.80 true-positive against 4B's 0.30,
+    # with false-positive still near zero — the same shape as D3, where 8B gained
+    # 28.5pp on lookup by reading a passage more carefully. 0.80 is still short
+    # of the 0.90 bar on the easiest possible positives, so 8B is a lead rather
+    # than a fix, and `entailment_verifier_model` exists to test it without
+    # changing the generator.
+    entailment_check: bool = False
+    # Empty means "use the generation model". Set to qwen3:8b or larger to run
+    # the check on a model that can do it.
+    entailment_verifier_model: str = ""
     entailment_max_chars: int = 900
     # Relative, like the evidence filter and for the same measured reason: the
     # logits shift by three units between question kinds, so a fixed floor

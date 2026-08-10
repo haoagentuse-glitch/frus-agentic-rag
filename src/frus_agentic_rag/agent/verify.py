@@ -99,11 +99,19 @@ async def verify(
         record["skipped"] = "no claim carries a retrievable passage"
         return claims, record
 
-    from frus_agentic_rag.agent.llm import get_client
+    from frus_agentic_rag.agent.llm import OllamaClient, get_client
     from frus_agentic_rag.agent.schemas import ClaimSupport
 
+    # A separate model when configured: entailment and generation are different
+    # jobs, and the measurement says the 4B generator cannot do this one.
+    client = (
+        OllamaClient(model=settings.entailment_verifier_model)
+        if settings.entailment_verifier_model
+        else get_client()
+    )
+    record["verifier_model"] = client.model
     try:
-        result = await get_client().structured(
+        result = await client.structured(
             VERIFY_SYSTEM,
             verify_user(pairs, settings.entailment_max_chars),
             ClaimSupport,
