@@ -516,6 +516,11 @@ async def p6() -> dict:
                     "case_id": c["case_id"],
                     "language": lang,
                     "outcome": a.outcome,
+                    # "both" alone cannot tell a total retrieval miss from the
+                    # multi-hop failure. The first run reported 0.0 and it took
+                    # a separate check to establish that one of the two was
+                    # always found; the count is recorded now so it cannot.
+                    "n_gold_retrieved": len(gold & set(a.retrieved_document_ids)),
                     "both_retrieved": gold <= set(a.retrieved_document_ids),
                     "both_cited": gold <= set(a.cited_document_ids),
                     "score": v.score,
@@ -531,6 +536,8 @@ async def p6() -> dict:
     sc = [r["score"] for r in rows if r["score"] is not None]
     return {
         "criterion": "both cross-referenced documents retrieved, and the answer uses both",
+        "mean_gold_retrieved_of_2": round(sum(r["n_gold_retrieved"] for r in rows) / n, 3),
+        "at_least_one": round(sum(r["n_gold_retrieved"] > 0 for r in rows) / n, 3),
         "both_retrieved": round(sum(r["both_retrieved"] for r in rows) / n, 3),
         "both_cited": round(sum(r["both_cited"] for r in rows) / n, 3),
         "correctness": round(sum(sc) / len(sc), 3) if sc else None,

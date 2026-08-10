@@ -1,0 +1,152 @@
+{
+  "criterion": "score must not fall as irrelevant evidence is added around the answer",
+  "curve_by_level": {
+    "2": 0.92,
+    "4": 0.98,
+    "8": 0.8,
+    "16": 0.8
+  },
+  "pass": true,
+  "rows": [
+    {
+      "case_id": "p3-00",
+      "level": 2,
+      "score": 0.9,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the document as frus1894app2:d314, but adds an unsupported ':0' suffix to the identifier, so it is not fully"
+    },
+    {
+      "case_id": "p3-00",
+      "level": 4,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the FRUS document with the given title and date as frus1894app2:d314, matching the reference."
+    },
+    {
+      "case_id": "p3-00",
+      "level": 8,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the FRUS document by title, date, and citation, and accurately summarizes its content without any invented f"
+    },
+    {
+      "case_id": "p3-00",
+      "level": 16,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document by ID and correctly summarizes its content without inventing details."
+    },
+    {
+      "case_id": "p3-01",
+      "level": 2,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document and summarizes its content without inventing or contradicting the reference."
+    },
+    {
+      "case_id": "p3-01",
+      "level": 4,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document title, date, sender, recipient, and summarizes the content as described in the reference "
+    },
+    {
+      "case_id": "p3-01",
+      "level": 8,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the document and summarizes its content without inventing facts."
+    },
+    {
+      "case_id": "p3-01",
+      "level": 16,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document by title and date and faithfully summarizes its content without invented details."
+    },
+    {
+      "case_id": "p3-02",
+      "level": 2,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the document as frus1905:d315 with the exact title and date from the reference."
+    },
+    {
+      "case_id": "p3-02",
+      "level": 4,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document by title and date, and summarizes its content consistently with the reference, without in"
+    },
+    {
+      "case_id": "p3-02",
+      "level": 8,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the FRUS document by title and date and accurately summarizes its content without contradiction."
+    },
+    {
+      "case_id": "p3-02",
+      "level": 16,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the document with the given title and date as frus1905:d315:0, matching the reference."
+    },
+    {
+      "case_id": "p3-03",
+      "level": 2,
+      "score": 0.7,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the FRUS document by title and date, but adds an unsupported ':0' suffix to the document ID."
+    },
+    {
+      "case_id": "p3-03",
+      "level": 4,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately states the document's date and ID, matching the reference."
+    },
+    {
+      "case_id": "p3-03",
+      "level": 8,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the document by its title and date, and faithfully summarizes the content of the reference without inventin"
+    },
+    {
+      "case_id": "p3-03",
+      "level": 16,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document by ID and faithfully summarizes its content without any invented facts."
+    },
+    {
+      "case_id": "p3-04",
+      "level": 2,
+      "score": 1.0,
+      "judge": "deepseek",
+      "reason": "The answer correctly identifies the document by its FRUS id, matching the reference title and date without inventing facts."
+    },
+    {
+      "case_id": "p3-04",
+      "level": 4,
+      "score": 0.9,
+      "judge": "deepseek",
+      "reason": "The answer accurately identifies the FRUS document by title and date, though it appends an internal identifier suffix ':0' not visible in th"
+    },
+    {
+      "case_id": "p3-04",
+      "level": 8,
+      "score": 0.0,
+      "judge": "deterministic",
+      "reason": "abstained on an answerable question"
+    },
+    {
+      "case_id": "p3-04",
+      "level": 16,
+      "score": 0.0,
+      "judge": "deterministic",
+      "reason": "abstained on an answerable question"
+    }
+  ]
+}
