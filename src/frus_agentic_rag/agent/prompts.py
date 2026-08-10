@@ -121,7 +121,7 @@ _EN_IDS = {
     ),
 }
 
-SYNTH_SYSTEM_ZH = """你依據 FRUS 原始文件回答，並且只能使用下面提供的 EVIDENCE。
+_SYNTH_SYSTEM_ZH_TMPL = """你依據 FRUS 原始文件回答，並且只能使用下面提供的 EVIDENCE。
 
 規則：
 {ids}
@@ -131,7 +131,7 @@ SYNTH_SYSTEM_ZH = """你依據 FRUS 原始文件回答，並且只能使用下�
 - answer_text 不要放網址；引用區塊由程式產生。
 - limitations 說明證據沒有涵蓋到什麼。"""
 
-SYNTH_SYSTEM_EN = """You answer from FRUS primary documents using ONLY the EVIDENCE below.
+_SYNTH_SYSTEM_EN_TMPL = """You answer from FRUS primary documents using ONLY the EVIDENCE below.
 
 Rules:
 {ids}
@@ -142,13 +142,20 @@ Rules:
 
 
 def synth_system(language: str) -> str:
-    """The synthesis prompt for the configured citation mode."""
+    """The synthesis prompt for the configured citation mode.
+
+    The templates are private because a caller that imported them directly and
+    skipped the format sent a system prompt containing the literal text
+    "{ids}" — which is what scripts/diagnose.py did for the whole of D2 and D3,
+    dropping the first rule from every prompt in both experiments. Nothing
+    failed; the runs completed and produced numbers.
+    """
     from frus_agentic_rag.config import get_settings
 
     mode = get_settings().citation_mode
     if language == "zh-TW":
-        return SYNTH_SYSTEM_ZH.format(ids=_ZH_IDS[mode])
-    return SYNTH_SYSTEM_EN.format(ids=_EN_IDS[mode])
+        return _SYNTH_SYSTEM_ZH_TMPL.format(ids=_ZH_IDS[mode])
+    return _SYNTH_SYSTEM_EN_TMPL.format(ids=_EN_IDS[mode])
 
 
 def select_synthesis_evidence(evidence: list[Evidence]) -> list[Evidence]:

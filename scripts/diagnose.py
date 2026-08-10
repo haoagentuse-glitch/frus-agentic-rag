@@ -129,7 +129,7 @@ async def d2(args) -> None:
     Retrieval budget is 0 by construction — recorded, not compared.
     """
     from frus_agentic_rag.agent.llm import get_client
-    from frus_agentic_rag.agent.prompts import SYNTH_SYSTEM_EN, SYNTH_SYSTEM_ZH, synth_user
+    from frus_agentic_rag.agent.prompts import synth_system, synth_user
     from frus_agentic_rag.agent.schemas import AgentAnswer
     from frus_agentic_rag.config import get_settings
     from frus_agentic_rag.evaluation.judge import judge_answer
@@ -149,7 +149,7 @@ async def d2(args) -> None:
             q = case["question_zh"] if lang == "zh-TW" else case["question_en"]
             try:
                 draft = await client.structured(
-                    SYNTH_SYSTEM_ZH if lang == "zh-TW" else SYNTH_SYSTEM_EN,
+                    synth_system(lang),
                     synth_user(q, gold),
                     AgentAnswer,
                     num_predict=settings.ollama_num_predict_synthesis,
@@ -264,7 +264,7 @@ async def d3(args) -> None:
     looks better.
     """
     from frus_agentic_rag.agent.llm import get_client
-    from frus_agentic_rag.agent.prompts import SYNTH_SYSTEM_EN, SYNTH_SYSTEM_ZH, synth_user
+    from frus_agentic_rag.agent.prompts import synth_system, synth_user
     from frus_agentic_rag.agent.schemas import AgentAnswer
     from frus_agentic_rag.evaluation.judge import judge_answer
 
@@ -288,7 +288,7 @@ async def d3(args) -> None:
             gold = _gold_evidence(case.get("gold_documents") or [])
             try:
                 draft = await client.structured(
-                    SYNTH_SYSTEM_ZH if f["language"] == "zh-TW" else SYNTH_SYSTEM_EN,
+                    synth_system(f["language"]),
                     synth_user(q, gold),
                     AgentAnswer,
                     num_predict=3072,
