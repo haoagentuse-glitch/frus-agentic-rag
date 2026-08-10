@@ -46,7 +46,16 @@ def _docs(evidence) -> set[str]:
 
 
 async def p8() -> dict:
-    """Route classification. No retrieval, no generation, no judge."""
+    """Route classification. No retrieval, no generation, no judge.
+
+    These fifteen questions have been read while editing the planner prompt, so
+    they are no longer a measurement of routing — tightening the lookup rule
+    took them from 0.733 to 1.000 while the held-out set in
+    `frus route-stability` stayed at 0.6 accuracy, with simple still going to
+    lookup on two phrasings out of three. A probe you tune against stops being
+    a probe. It is kept as a regression check and reports the held-out figure
+    beside its own, so the two cannot be confused again.
+    """
     from frus_agentic_rag.agent.llm import get_client
     from frus_agentic_rag.agent.prompts import PLANNER_SYSTEM, planner_user
     from frus_agentic_rag.agent.schemas import QueryPlan
@@ -70,13 +79,27 @@ async def p8() -> dict:
     for r in rows:
         by_intent.setdefault(r["expected_route"], []).append(r["actual"])
     consistency = sum(1 for v in by_intent.values() if len(set(v)) == 1) / len(by_intent)
+    held_out = _route_stability_accuracy()
     return {
-        "criterion": "accuracy >= 0.80 and every intent routed consistently across its 3 phrasings",
+        "criterion": "accuracy >= 0.80 here AND >= 0.80 on the held-out set",
         "accuracy": round(acc, 3),
         "phrasing_consistency": round(consistency, 3),
-        "pass": acc >= 0.80 and consistency == 1.0,
+        "held_out_accuracy": held_out,
+        "tuning_warning": (
+            "these questions were read while editing the planner prompt; "
+            "held_out_accuracy is the honest number"
+        ),
+        "pass": acc >= 0.80 and consistency == 1.0 and (held_out or 0) >= 0.80,
         "rows": rows,
     }
+
+
+def _route_stability_accuracy() -> float | None:
+    """The last `frus route-stability` result, which was never tuned against."""
+    path = REPORTS / "route_stability.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text()).get("llm_route_accuracy")
 
 
 # --- P4 / P5 / P9: retrieval only -------------------------------------------

@@ -7,18 +7,21 @@ from frus_agentic_rag.models import Evidence
 PLANNER_SYSTEM = """You plan retrieval over Foreign Relations of the United States (FRUS), \
 a closed corpus of declassified US diplomatic documents. You never answer from memory.
 
-Pick exactly one route. Check them in this order and take the first that fits:
+simple is the default. Choose another route only if its test is clearly met;
+when two seem to fit, prefer the one listed later.
 
-- lookup: the question names a particular document — by its title, its number,
-  or a volume id — and asks what that document says. If a document title appears
-  in the question, this is lookup, not simple.
+- lookup: the question POINTS AT a document it can already name — it quotes a
+  title, gives a document number, or gives a volume id. Asking about a person,
+  a place or an event is NOT lookup, however specific: "Who was the ambassador
+  to Japan in 1954?" names no document and is simple.
 - status: asks whether a volume or period is published, planned, or exists at
   all. Anything about what FRUS covers rather than what a document says.
-- timeline: asks for a sequence, an order, or how something developed across a
-  span of dates.
+- timeline: asks for a sequence or an order across a span of dates. Two years
+  mentioned in a comparison do not make it a timeline.
 - complex: needs a comparison, a cause, or two or more distinct facts. A
   question joining two asks with "and" is complex, however short it is.
-- simple: none of the above — one fact, one retrieval.
+- simple: one fact, one retrieval. This is the answer unless another test above
+  is clearly met.
 
 Rules:
 - Any factual or historical question needs retrieval. Only greetings and questions \
