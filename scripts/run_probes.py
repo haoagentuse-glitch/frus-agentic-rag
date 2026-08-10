@@ -522,6 +522,35 @@ async def p3() -> dict:
     }
 
 
+def _link_is_indexed(source: str, target: str) -> bool:
+    """Does the first document's indexed text mention the second at all?
+
+    It does not, for any of the eight cases. The cross-reference lives in a
+    footnote and `_body_text` strips footnotes on purpose — inlining them
+    mid-sentence corrupts the passage a retriever matches against — so the
+    corpus as indexed carries no document-to-document relations. P6 therefore
+    asks about a link that is not there, and reporting its 0/16 as a retrieval
+    failure would be wrong. It measures what stripping the apparatus costs.
+    """
+    import re
+
+    from frus_agentic_rag.corpus.index import CHUNKS_TABLE, connect
+
+    vol, _, src = source.partition(":")
+    _, _, tgt = target.partition(":")
+    rows = (
+        connect()
+        .open_table(CHUNKS_TABLE)
+        .search()
+        .where(f"volume_id = '{vol}' AND document_id = '{src}'")
+        .select(["text"])
+        .limit(50)
+        .to_list()
+    )
+    body = " ".join(r["text"] for r in rows)
+    return bool(re.search(rf"\b(Document|Doc\.?)\s+{tgt[1:]}\b", body))
+
+
 async def p6() -> dict:
     """Multi-hop with historian-authored gold: both documents must be used."""
     from frus_agentic_rag.agent.run import answer
@@ -533,12 +562,14 @@ async def p6() -> dict:
             q = c["question_zh"] if lang == "zh-TW" else c["question_en"]
             a = await answer(q, language=lang, system="B3")
             gold = set(c["gold_documents"])
+            linked = _link_is_indexed(*c["gold_documents"])
             v = await judge_answer(q, a.answer_text, sorted(gold), True, a.outcome)
             rows.append(
                 {
                     "case_id": c["case_id"],
                     "language": lang,
                     "outcome": a.outcome,
+                    "link_in_indexed_text": linked,
                     # "both" alone cannot tell a total retrieval miss from the
                     # multi-hop failure. The first run reported 0.0 and it took
                     # a separate check to establish that one of the two was
@@ -559,6 +590,12 @@ async def p6() -> dict:
     sc = [r["score"] for r in rows if r["score"] is not None]
     return {
         "criterion": "both cross-referenced documents retrieved, and the answer uses both",
+        "link_in_indexed_text": round(sum(r["link_in_indexed_text"] for r in rows) / n, 3),
+        "note": (
+            "where link_in_indexed_text is 0 the second document is unreachable by "
+            "construction: the cross-reference exists only in a footnote, which "
+            "corpus/tei.py strips. This measures the cost of that, not retrieval."
+        ),
         "mean_gold_retrieved_of_2": round(sum(r["n_gold_retrieved"] for r in rows) / n, 3),
         "at_least_one": round(sum(r["n_gold_retrieved"] > 0 for r in rows) / n, 3),
         "both_retrieved": round(sum(r["both_retrieved"] for r in rows) / n, 3),

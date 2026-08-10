@@ -1,14 +1,20 @@
 {
   "criterion": "both cross-referenced documents retrieved, and the answer uses both",
+  "link_in_indexed_text": 0.0,
+  "note": "where link_in_indexed_text is 0 the second document is unreachable by construction: the cross-reference exists only in a footnote, which corpus/tei.py strips. This measures the cost of that, not retrieval.",
+  "mean_gold_retrieved_of_2": 0.812,
+  "at_least_one": 0.812,
   "both_retrieved": 0.0,
   "both_cited": 0.0,
-  "correctness": 0.219,
+  "correctness": 0.338,
   "pass": false,
   "rows": [
     {
       "case_id": "p6-00",
       "language": "en",
       "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
       "score": 0.0,
@@ -17,137 +23,167 @@
     {
       "case_id": "p6-00",
       "language": "zh-TW",
-      "outcome": "answer",
+      "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
       "score": 0.0,
-      "reason": "The answer accurately summarizes document 75 but fabricates a cross-referenced document 83 with details not present in the reference, which "
+      "reason": "abstained on an answerable question"
     },
     {
       "case_id": "p6-01",
       "language": "en",
       "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.6,
-      "reason": "The answer accurately summarizes document 14 but invents unsupported details about a cross-referenced document not included in the reference"
-    },
-    {
-      "case_id": "p6-01",
-      "language": "zh-TW",
-      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
       "score": 1.0,
-      "reason": "The answer accurately summarizes the memorandum's content about Col. Mara, S, the report, and the psychological warfare discussions, matchin"
+      "reason": "The answer accurately summarizes the memorandum's contents without inventing details, and no cross-referenced document is present in the ref"
+    },
+    {
+      "case_id": "p6-01",
+      "language": "zh-TW",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.4,
+      "reason": "The summary of document 14 is accurate, but the description of the cross-referenced document '63' contains specific details (PBSUCCESS, KUGO"
     },
     {
       "case_id": "p6-02",
-      "language": "en",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.6,
-      "reason": "The answer accurately summarizes the Kissinger memorandum but fails to explicitly identify the cross-referenced National Intelligence Estima"
-    },
-    {
-      "case_id": "p6-02",
-      "language": "zh-TW",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "The answer describes a different memorandum about Four Power talks on a Jordan-Israel settlement, while the referenced FRUS document is Kiss"
-    },
-    {
-      "case_id": "p6-03",
-      "language": "en",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.6,
-      "reason": "The answer accurately summarizes much of Document 12 but omits entirely the cross-referenced Document 2 (Rogers's letter) and misstates that"
-    },
-    {
-      "case_id": "p6-03",
-      "language": "zh-TW",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "The answer invents numerous specific claims (e.g., distribution via periodicals, films, lectures, advice on democracy, trade expansion) that"
-    },
-    {
-      "case_id": "p6-04",
       "language": "en",
       "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
       "score": 0.0,
       "reason": "abstained on an answerable question"
     },
     {
-      "case_id": "p6-04",
+      "case_id": "p6-02",
       "language": "zh-TW",
       "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
-      "score": 0.0,
-      "reason": "The answer invents numerous letters and dates not present in the reference, and fails to describe the actual short thank-you message from Pr"
+      "score": 0.6,
+      "reason": "The answer accurately summarizes most of the Kissinger memorandum but omits the cross-referenced NIE's additional points about political dam"
     },
     {
-      "case_id": "p6-05",
-      "language": "en",
-      "outcome": "abstain",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "abstained on an answerable question"
-    },
-    {
-      "case_id": "p6-05",
-      "language": "zh-TW",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "答案内容与參考文件完全不符，捏造了關於NPT和巴基斯坦的內容，而實際文档是1969年4月2日韓國總理與美國國務卿的會談記錄。"
-    },
-    {
-      "case_id": "p6-06",
+      "case_id": "p6-03",
       "language": "en",
       "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "The answer accurately summarizes PRM/NSC 21 but fabricates a cross-referenced PRM/NSC 10 document, when the reference actually provides a Po"
-    },
-    {
-      "case_id": "p6-06",
-      "language": "zh-TW",
-      "outcome": "answer",
-      "both_retrieved": false,
-      "both_cited": false,
-      "score": 0.0,
-      "reason": "The first part accurately describes PRM/NSC 21, but the answer invents a cross-reference to PRM/NSC 24 on China policy that is not present i"
-    },
-    {
-      "case_id": "p6-07",
-      "language": "en",
-      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
       "score": 0.7,
-      "reason": "Accurately summarizes the memorandum but omits the cross-referenced telegram, making the answer partial."
+      "reason": "The answer accurately summarizes the Division of Foreign Press report but omits the second part about the cross-referenced Rogers letter and"
+    },
+    {
+      "case_id": "p6-03",
+      "language": "zh-TW",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.7,
+      "reason": "The answer accurately summarizes document 12's policy on message distribution and State Department coordination, but it omits the content of"
+    },
+    {
+      "case_id": "p6-04",
+      "language": "en",
+      "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 0,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.0,
+      "reason": "abstained on an answerable question"
+    },
+    {
+      "case_id": "p6-04",
+      "language": "zh-TW",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 0,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.0,
+      "reason": "The answer discusses unrelated 1962-1963 letters instead of the November 1960 Kennedy-Khrushchev messages in the reference."
+    },
+    {
+      "case_id": "p6-05",
+      "language": "en",
+      "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 0,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.0,
+      "reason": "abstained on an answerable question"
+    },
+    {
+      "case_id": "p6-05",
+      "language": "zh-TW",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.8,
+      "reason": "The answer accurately summarizes several specific points from the document (Acheson reference, North Korean militia arms, infiltrator incide"
+    },
+    {
+      "case_id": "p6-06",
+      "language": "en",
+      "outcome": "abstain",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.0,
+      "reason": "abstained on an answerable question"
+    },
+    {
+      "case_id": "p6-06",
+      "language": "zh-TW",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.6,
+      "reason": "The answer accurately summarizes PRM/NSC 21 but omits the cross-referenced Policy Review Committee paper and slightly misstates the Ethiopia"
+    },
+    {
+      "case_id": "p6-07",
+      "language": "en",
+      "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
+      "both_retrieved": false,
+      "both_cited": false,
+      "score": 0.0,
+      "reason": "The answer accurately summarizes the memorandum's content but invents a detailed cross-reference to a July 26, 1957 conversation with Robert"
     },
     {
       "case_id": "p6-07",
       "language": "zh-TW",
       "outcome": "answer",
+      "link_in_indexed_text": false,
+      "n_gold_retrieved": 1,
       "both_retrieved": false,
       "both_cited": false,
-      "score": 0.0,
-      "reason": "The answer accurately describes the January 7, 1955 conversation but then fabricates a cross-reference to a document (frus1955-57v23p2:d239:"
+      "score": 0.6,
+      "reason": "The answer accurately summarizes the first part of the memorandum but omits the rest of the conversation and completely fails to address the"
     }
   ]
 }
