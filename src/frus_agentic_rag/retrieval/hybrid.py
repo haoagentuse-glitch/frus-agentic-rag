@@ -49,6 +49,10 @@ def build_where(filters: SearchFilters) -> str | None:
         clauses.append(f"date_to >= {_lit(filters.date_from)}")
     if filters.date_to:
         clauses.append(f"date_from <= {_lit(filters.date_to)}")
+    for doc in filters.exclude_documents:
+        vol, _, did = doc.partition(":")
+        if vol and did:
+            clauses.append(f"NOT (volume_id = {_lit(vol)} AND document_id = {_lit(did)})")
     return " AND ".join(clauses) if clauses else None
 
 

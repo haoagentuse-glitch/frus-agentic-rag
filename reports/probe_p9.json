@@ -1,0 +1,52 @@
+{
+  "criterion": "gold recall >= 0.8 and results in date order; range is overlap-based",
+  "mean_recall": 1.0,
+  "all_starts_in_range": 0.8,
+  "chronological": 1.0,
+  "filter_semantics": "overlap, not containment — see the note in the rows",
+  "pass": true,
+  "rows": [
+    {
+      "case_id": "p9-00",
+      "recall": 1.0,
+      "n_returned": 16,
+      "all_starts_in_range": true,
+      "chronological": true,
+      "starts_before_window": []
+    },
+    {
+      "case_id": "p9-01",
+      "recall": 1.0,
+      "n_returned": 20,
+      "all_starts_in_range": false,
+      "chronological": true,
+      "starts_before_window": [
+        "1877-07-31"
+      ]
+    },
+    {
+      "case_id": "p9-02",
+      "recall": 1.0,
+      "n_returned": 20,
+      "all_starts_in_range": true,
+      "chronological": true,
+      "starts_before_window": []
+    },
+    {
+      "case_id": "p9-03",
+      "recall": 1.0,
+      "n_returned": 14,
+      "all_starts_in_range": true,
+      "chronological": true,
+      "starts_before_window": []
+    },
+    {
+      "case_id": "p9-04",
+      "recall": 1.0,
+      "n_returned": 12,
+      "all_starts_in_range": true,
+      "chronological": true,
+      "starts_before_window": []
+    }
+  ]
+}

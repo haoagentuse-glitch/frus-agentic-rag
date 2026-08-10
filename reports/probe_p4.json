@@ -1,0 +1,148 @@
+{
+  "criterion": "a question quoting a unique title and its date should rank that document 1st",
+  "hit_at_1": 0.95,
+  "hit_at_10": 1.0,
+  "pass": true,
+  "rows": [
+    {
+      "case_id": "p4-00",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-00",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-01",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-01",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-02",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-02",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-03",
+      "language": "en",
+      "rank_of_first_gold": 2,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-03",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-04",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-04",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-05",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-05",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-06",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-06",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-07",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-07",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-08",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-08",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-09",
+      "language": "en",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    },
+    {
+      "case_id": "p4-09",
+      "language": "zh-TW",
+      "rank_of_first_gold": 1,
+      "recall_at_20": 1.0,
+      "n_gold": 1
+    }
+  ]
+}

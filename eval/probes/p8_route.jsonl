@@ -1,0 +1,15 @@
+{"probe": "P8", "case_id": "p8-lookup-0", "expected_route": "lookup", "question_en": "What does FRUS document frus1949v07p1 d376 say?"}
+{"probe": "P8", "case_id": "p8-lookup-1", "expected_route": "lookup", "question_en": "Show me document 376 in frus1949v07p1."}
+{"probe": "P8", "case_id": "p8-lookup-2", "expected_route": "lookup", "question_en": "Quote FRUS frus1949v07p1, document 376."}
+{"probe": "P8", "case_id": "p8-status-0", "expected_route": "status", "question_en": "Has the FRUS volume for 1977-1980 Iran been published?"}
+{"probe": "P8", "case_id": "p8-status-1", "expected_route": "status", "question_en": "Is there a published FRUS volume covering Iran in 1977?"}
+{"probe": "P8", "case_id": "p8-status-2", "expected_route": "status", "question_en": "Which FRUS volumes on Iran are still planned rather than published?"}
+{"probe": "P8", "case_id": "p8-timeline-0", "expected_route": "timeline", "question_en": "How did US policy on Berlin develop between 1948 and 1949?"}
+{"probe": "P8", "case_id": "p8-timeline-1", "expected_route": "timeline", "question_en": "Give the sequence of events on Berlin from 1948 to 1949."}
+{"probe": "P8", "case_id": "p8-timeline-2", "expected_route": "timeline", "question_en": "In what order did the Berlin decisions of 1948-1949 happen?"}
+{"probe": "P8", "case_id": "p8-complex-0", "expected_route": "complex", "question_en": "Compare US policy towards Cuba before and after 1961."}
+{"probe": "P8", "case_id": "p8-complex-1", "expected_route": "complex", "question_en": "What is the difference between the 1960 and 1962 US positions on Cuba?"}
+{"probe": "P8", "case_id": "p8-complex-2", "expected_route": "complex", "question_en": "Why did US policy on Cuba change after 1961, and what caused it?"}
+{"probe": "P8", "case_id": "p8-simple-0", "expected_route": "simple", "question_en": "Who was the US ambassador to Japan in 1954?"}
+{"probe": "P8", "case_id": "p8-simple-1", "expected_route": "simple", "question_en": "Name the US ambassador in Tokyo in 1954."}
+{"probe": "P8", "case_id": "p8-simple-2", "expected_route": "simple", "question_en": "In 1954, which American held the ambassadorship to Japan?"}

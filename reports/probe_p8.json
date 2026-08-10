@@ -1,0 +1,83 @@
+{
+  "criterion": "accuracy >= 0.80 and every intent routed consistently across its 3 phrasings",
+  "accuracy": 0.733,
+  "phrasing_consistency": 0.8,
+  "pass": false,
+  "rows": [
+    {
+      "case_id": "p8-lookup-0",
+      "expected_route": "lookup",
+      "actual": "lookup"
+    },
+    {
+      "case_id": "p8-lookup-1",
+      "expected_route": "lookup",
+      "actual": "lookup"
+    },
+    {
+      "case_id": "p8-lookup-2",
+      "expected_route": "lookup",
+      "actual": "lookup"
+    },
+    {
+      "case_id": "p8-status-0",
+      "expected_route": "status",
+      "actual": "status"
+    },
+    {
+      "case_id": "p8-status-1",
+      "expected_route": "status",
+      "actual": "status"
+    },
+    {
+      "case_id": "p8-status-2",
+      "expected_route": "status",
+      "actual": "status"
+    },
+    {
+      "case_id": "p8-timeline-0",
+      "expected_route": "timeline",
+      "actual": "timeline"
+    },
+    {
+      "case_id": "p8-timeline-1",
+      "expected_route": "timeline",
+      "actual": "timeline"
+    },
+    {
+      "case_id": "p8-timeline-2",
+      "expected_route": "timeline",
+      "actual": "timeline"
+    },
+    {
+      "case_id": "p8-complex-0",
+      "expected_route": "complex",
+      "actual": "complex"
+    },
+    {
+      "case_id": "p8-complex-1",
+      "expected_route": "complex",
+      "actual": "timeline"
+    },
+    {
+      "case_id": "p8-complex-2",
+      "expected_route": "complex",
+      "actual": "complex"
+    },
+    {
+      "case_id": "p8-simple-0",
+      "expected_route": "simple",
+      "actual": "lookup"
+    },
+    {
+      "case_id": "p8-simple-1",
+      "expected_route": "simple",
+      "actual": "lookup"
+    },
+    {
+      "case_id": "p8-simple-2",
+      "expected_route": "simple",
+      "actual": "lookup"
+    }
+  ]
+}

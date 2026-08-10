@@ -38,6 +38,7 @@ class AgentState(TypedDict, total=False):
 
     evidence: list[Evidence]
     accepted_evidence_ids: list[str]
+    exclude_documents: list[str]
     hop_grades: list[HopGrade]
     missing_hops: list[str]
 
@@ -56,9 +57,18 @@ class AgentState(TypedDict, total=False):
     trace: Annotated[list[TraceEvent], _extend]
 
 
-def new_state(question: str, language: Language, system: str = "B3") -> AgentState:
+def new_state(
+    question: str,
+    language: Language,
+    system: str = "B3",
+    exclude_documents: list[str] | None = None,
+) -> AgentState:
     return AgentState(
         question=question,
+        # Withheld from every retrieval in this run. Only the grounding probe
+        # sets it: asking a question with its answer removed is how fabrication
+        # is measured without knowing what the right answer was.
+        exclude_documents=list(exclude_documents or []),
         answer_language=language,
         system=system,
         route="simple",

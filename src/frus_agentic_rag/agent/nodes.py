@@ -132,7 +132,7 @@ async def plan_query(state: AgentState) -> dict:
         }
 
 
-def _filters(sq: SubQuery) -> tuple[SearchFilters, dict]:
+def _filters(sq: SubQuery, exclude: list[str] | None = None) -> tuple[SearchFilters, dict]:
     """Typed filters from a planned subquery, with the model's guesses checked.
 
     The planner has no way to know FRUS volume ids and invents them; an
@@ -160,6 +160,7 @@ def _filters(sq: SubQuery) -> tuple[SearchFilters, dict]:
             date_to=date_to,
             persons=sq.persons,
             subtypes=["historical-document"],
+            exclude_documents=list(exclude or []),
         ),
         rejected,
     )
@@ -193,9 +194,13 @@ async def dispatch_retrieval(state: AgentState) -> dict:
                 m = re.search(r"(frus[\w\-]+)\D+(\d+)", sq.query, re.I)
                 if m:
                     hits = await tb.lookup_document(m.group(1), f"d{m.group(2)}")
+                    # The direct lookup path does not go through SearchFilters,
+                    # so it would hand back a document the run is withholding.
+                    withheld = set(state.get("exclude_documents") or [])
+                    hits = [h for h in hits if f"{h.volume_id}:{h.document_id}" not in withheld]
                     if hits:
                         return hits
-            filters, rejected = _filters(sq)
+            filters, rejected = _filters(sq, state.get("exclude_documents"))
             if rejected:
                 rejected_filters.append({"hop": sq.hop_id, **rejected})
 
@@ -214,7 +219,13 @@ async def dispatch_retrieval(state: AgentState) -> dict:
             if not hits and (filters.volume_ids or filters.date_from or filters.date_to):
                 relaxed.append(sq.hop_id)
                 hits = await tb.hybrid_search(
-                    sq.query, SearchFilters(subtypes=["historical-document"]), top_k, sq.hop_id
+                    sq.query,
+                    SearchFilters(
+                        subtypes=["historical-document"],
+                        exclude_documents=list(state.get("exclude_documents") or []),
+                    ),
+                    top_k,
+                    sq.hop_id,
                 )
             return hits
 

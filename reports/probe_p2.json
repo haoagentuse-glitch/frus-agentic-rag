@@ -1,0 +1,83 @@
+{
+  "criterion": "reordering the same evidence must not change which people are named",
+  "actor_set_stability": 0.333,
+  "mean_overlap": 0.639,
+  "pass": false,
+  "rows": [
+    {
+      "case_id": "p2-00",
+      "chunks": 3,
+      "actors_forward": [],
+      "actors_reverse": [],
+      "same_actor_set": true,
+      "actor_overlap": 1.0
+    },
+    {
+      "case_id": "p2-01",
+      "chunks": 6,
+      "actors_forward": [
+        "Mr. Cridland",
+        "Mr. Mason"
+      ],
+      "actors_reverse": [
+        "Mr. Mason"
+      ],
+      "same_actor_set": false,
+      "actor_overlap": 0.5
+    },
+    {
+      "case_id": "p2-03",
+      "chunks": 6,
+      "actors_forward": [],
+      "actors_reverse": [
+        "Mr. Sargent"
+      ],
+      "same_actor_set": false,
+      "actor_overlap": 0.0
+    },
+    {
+      "case_id": "p2-04",
+      "chunks": 2,
+      "actors_forward": [
+        "Mr. Friedrich",
+        "Mr. Sargent"
+      ],
+      "actors_reverse": [
+        "Mr. Frelinghuysen",
+        "Mr. Friedrich",
+        "Mr. Sargent"
+      ],
+      "same_actor_set": false,
+      "actor_overlap": 0.667
+    },
+    {
+      "case_id": "p2-05",
+      "chunks": 4,
+      "actors_forward": [
+        "Mr. Alexander",
+        "Mr. Sidi",
+        "Mr. Wallace"
+      ],
+      "actors_reverse": [
+        "Mr. Sidi",
+        "Mr. Wallace"
+      ],
+      "same_actor_set": false,
+      "actor_overlap": 0.667
+    },
+    {
+      "case_id": "p2-07",
+      "chunks": 3,
+      "actors_forward": [
+        "Mr. Seward",
+        "Sir Edward"
+      ],
+      "actors_reverse": [
+        "Mr. Seward",
+        "Sir Edward"
+      ],
+      "same_actor_set": true,
+      "actor_overlap": 1.0
+    }
+  ]
+}

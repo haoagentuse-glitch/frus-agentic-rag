@@ -80,6 +80,12 @@ class SearchFilters(BaseModel):
     date_to: str | None = None
     persons: list[str] = Field(default_factory=list)
     subtypes: list[SectionType] = Field(default_factory=list)
+    # Documents to withhold, as "volume_id:document_id". Not LLM-fillable in
+    # practice — it exists so the grounding probe can ask a question with the
+    # answer removed from the corpus and check that the system abstains rather
+    # than inventing one. A system that answers anyway is fabricating, and that
+    # is measurable without knowing what the right answer was.
+    exclude_documents: list[str] = Field(default_factory=list)
 
 
 class Evidence(BaseModel):

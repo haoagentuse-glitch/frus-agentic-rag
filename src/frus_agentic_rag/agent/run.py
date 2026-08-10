@@ -27,6 +27,7 @@ async def answer(
     system: str = "B3",
     thread_id: str | None = None,
     checkpointer: Any = None,
+    exclude_documents: list[str] | None = None,
 ) -> Answer:
     language = cast(Language, language or detect_language(question))
     client = get_client()
@@ -43,7 +44,9 @@ async def answer(
         f"frus.answer.{system}", kind="AGENT", **{"frus.system": system, "frus.language": language}
     ) as root:
         obs.set_input(root, question)
-        final = await graph.ainvoke(new_state(question, language, system), config=config)
+        final = await graph.ainvoke(
+            new_state(question, language, system, exclude_documents), config=config
+        )
         obs.set_output(
             root,
             {

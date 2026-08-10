@@ -1,0 +1,80 @@
+{
+  "criterion": "planned volumes -> abstain; false premise -> state the true date",
+  "by_kind": {
+    "unpublished": 0.833,
+    "false_premise": 0.0
+  },
+  "pass": false,
+  "rows": [
+    {
+      "case_id": "p7u-00",
+      "kind": "unpublished",
+      "outcome": "abstain",
+      "ok": true,
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    },
+    {
+      "case_id": "p7u-01",
+      "kind": "unpublished",
+      "outcome": "abstain",
+      "ok": true,
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    },
+    {
+      "case_id": "p7u-02",
+      "kind": "unpublished",
+      "outcome": "answer",
+      "ok": false,
+      "answer_head": "FRUS記載了伊朗的國情與美國對伊朗的關係，包括伊朗在波斯灣地區的戰略重要性，以及其經濟與軍事發展對區域穩定的影響。美國認為伊朗是波斯灣最強大、政治最穩定且經濟最發達的國家，與美國共享推動區域內溫和力量、限制蘇聯影響力的共同利益。美國觀察到伊朗正透過經濟與軍事力量擴張其外交政策，例如提出區域共同市場、提供低利石油貸款，"
+    },
+    {
+      "case_id": "p7u-03",
+      "kind": "unpublished",
+      "outcome": "abstain",
+      "ok": true,
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    },
+    {
+      "case_id": "p7u-04",
+      "kind": "unpublished",
+      "outcome": "abstain",
+      "ok": true,
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    },
+    {
+      "case_id": "p7u-05",
+      "kind": "unpublished",
+      "outcome": "abstain",
+      "ok": true,
+      "answer_head": "根據目前檢索到的 FRUS 文件，無法支持一個有憑據的回答。FRUS 只收錄已出版卷次的解密外交文件；若該主題屬於尚未出版的卷次，或用詞與檔案不符，就會檢索不到。"
+    },
+    {
+      "case_id": "p7f-00",
+      "kind": "false_premise",
+      "outcome": "answer",
+      "ok": false,
+      "answer_head": "Mr. Egan to Mr. Blaine reports that the investigation of the assault upon the Baltimore’s men is secret; that Capt. Schley and the United States consul have rec"
+    },
+    {
+      "case_id": "p7f-01",
+      "kind": "false_premise",
+      "outcome": "answer",
+      "ok": false,
+      "answer_head": "FRUS 文件「No. 333.Sir L. S. Sackville West to Mr. Bayard.」的日期是 1894-01-28，但所提供的證據中並未包含此文件的內容或相關記載。所有提供的證據均為其他日期、主題或文件，例如關於墨西哥共和國對聖方濟各總主教與蒙特雷總主教的訴訟結論、1893年巴黎仲裁庭的決議"
+    },
+    {
+      "case_id": "p7f-02",
+      "kind": "false_premise",
+      "outcome": "answer",
+      "ok": false,
+      "answer_head": "The text of the convention of peace celebrated on board the cruiser Marble Head of the navy of the United States of America is not present in the provided evide"
+    },
+    {
+      "case_id": "p7f-03",
+      "kind": "false_premise",
+      "outcome": "answer",
+      "ok": false,
+      "answer_head": "美國駐坦吉爾公使館於1907年7月3日發出的電報指出，英國官員凱德·麥克萊恩（Kaid Maclean）被拉伊蘇利（Raisuli）扣押，並被關押作為人質。英國駐美國大使館於1907年7月3日發出的文件指出，英國政府認為美國政府無需猶豫地接受英國商會發行的價值證書，與德國商會發行的證書同等處理，因為英國商會已在多個歐洲"
+    }
+  ]
+}

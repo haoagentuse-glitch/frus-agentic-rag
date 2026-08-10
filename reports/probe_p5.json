@@ -1,0 +1,95 @@
+{
+  "criterion": "the same document, asked in Chinese with no Latin anchors, within top 10",
+  "hit_at_10": {
+    "en": 0.833,
+    "zh-TW": 0.833
+  },
+  "gap_pp": 0.0,
+  "pass": true,
+  "rows": [
+    {
+      "case_id": "p5-00",
+      "language": "en",
+      "country": "Brazil",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-00",
+      "language": "zh-TW",
+      "country": "Brazil",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-01",
+      "language": "en",
+      "country": "China",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-01",
+      "language": "zh-TW",
+      "country": "China",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-02",
+      "language": "en",
+      "country": "Cuba",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-02",
+      "language": "zh-TW",
+      "country": "Cuba",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-03",
+      "language": "en",
+      "country": "France",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-03",
+      "language": "zh-TW",
+      "country": "France",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-04",
+      "language": "en",
+      "country": "Germany",
+      "rank_of_first_gold": 19,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-04",
+      "language": "zh-TW",
+      "country": "Germany",
+      "rank_of_first_gold": null,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-05",
+      "language": "en",
+      "country": "Italy",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    },
+    {
+      "case_id": "p5-05",
+      "language": "zh-TW",
+      "country": "Italy",
+      "rank_of_first_gold": 1,
+      "candidates_in_window": 20
+    }
+  ]
+}
