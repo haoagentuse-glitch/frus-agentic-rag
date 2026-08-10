@@ -318,43 +318,21 @@ finish() {
 FAILED=""
 
 
-# The D-series. Diagnosis before the next version: each step changes one thing
-# and the cheap ones run first, so an expensive index rebuild is only paid for
-# once something has been shown to need it.
-
-# D0 and D6 read records that already exist, so the VM has to fetch them first:
-# its reports/ starts empty, and without this D0 finds no runs_*.jsonl and D6
-# finds no score_distribution.jsonl. Both then write nothing and sync an empty
-# file over the good one in the bucket.
+# Candidate configurations. Each differs from the frozen baseline by exactly one
+# setting, plus one combining whatever the singles suggest. The reduced case set
+# keeps every ordering the full set separates by more than 3pp at 3.5x the
+# speed; the full set is for a final comparison, not for choosing between five.
 gcloud storage rsync -r "$BUCKET/reports" "$WORK/reports" || true
 
-# No model, seconds.
-uv run python scripts/diagnose.py d0 || FAILED="$FAILED d0"
-uv run python scripts/diagnose.py d6 || FAILED="$FAILED d6"
-sync_reports
+# The verifier needs a model that can do entailment. Measured on constructed
+# pairs, 4B calls 70% of a passage's own sentences unsupported and 8B calls 20%,
+# so any candidate with the check on runs it against 8B.
+ollama pull qwen3:8b || true
 
-# D2: the gold documents handed straight to the generator, no retrieval at all.
-# The most informative experiment available and nearly free — it separates
-# "the pipeline did not deliver the evidence" from "the model cannot use it",
-# and that answer decides whether any retrieval work is worth doing.
-uv run python scripts/diagnose.py d2 || FAILED="$FAILED d2"
-sync_reports
-
-# D3 is deliberately not run here. It is a branch of D2, not a step after it:
-# comparing generators is only worth paying for once D2 has shown the generator
-# is the bottleneck. Run it separately if D2 says so:
-#   python scripts/diagnose.py d3 --models qwen3:4b-instruct,qwen3:8b
-
-# D1 and D4 go through the normal evaluator, on the reduced case set: ten cases
-# preserve every ordering the full set separates by more than 3pp, at 3.5x the
-# speed. The full set is for the final B3-vs-B4 comparison, not for diagnosis.
 CORE="--cases eval/gold_cases_core.jsonl"
 run_variant() {
   local name=$1; shift
-  # B3 only. D1 and D4 each change one thing about the citation or context
-  # path; sweeping five systems at the same time would vary a second thing and
-  # cost four times the judge calls for no diagnostic gain.
-  ( export "$@"; uv run frus eval --no-resume $CORE --systems B3 ) 2>&1 | tail -30
+  ( export "$@"; uv run frus eval --no-resume $CORE --systems B3 ) 2>&1 | tail -25
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     echo "VARIANT FAILED: $name"
     FAILED="$FAILED $name"
@@ -365,14 +343,29 @@ run_variant() {
   sync_reports
 }
 
-# Frozen baseline. Everything below differs from it by exactly one setting.
-run_variant D_base            FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3
-# D1: the old scheme, where the model copies ids verbatim.
-run_variant D1_model_citation FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
-  FRUS_CITATION_MODE=model
-# D4: each surviving passage widened with its neighbours in the same document.
-run_variant D4_neighbours     FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3 \
-  FRUS_CONTEXT_EXPAND_NEIGHBOURS=1
+BASE="FRUS_SCORE_MIN_PER_HOP=3 FRUS_SCORE_KEEP_MARGIN=4.3"
+
+# C1 — the frozen baseline everything else is measured against.
+run_variant C1_base $BASE
+# C2 — 8B generator. D3 measured +15.8pp on hard cases with identical evidence,
+#      but +2.0pp on multi-hop, so this should move some kinds and not others.
+run_variant C2_gen8b $BASE FRUS_OLLAMA_MODEL=qwen3:8b
+# C3 — entailment on, verified by 8B. The check the pipeline has never had.
+run_variant C3_verify $BASE FRUS_ENTAILMENT_CHECK=true \
+  FRUS_ENTAILMENT_VERIFIER_MODEL=qwen3:8b
+# C4 — sentence filtering off. It has been on since it was written and its
+#      effect on correctness has never been measured, only its cost.
+run_variant C4_nofocus $BASE FRUS_FOCUS_SENTENCES=false
+# C5 — 8B generator and 8B verifier together, the combination the singles point
+#      at. Reported as a combination, not attributed to either part.
+run_variant C5_combined $BASE FRUS_OLLAMA_MODEL=qwen3:8b FRUS_ENTAILMENT_CHECK=true \
+  FRUS_ENTAILMENT_VERIFIER_MODEL=qwen3:8b
+
+# The probes close the loop: they measure mechanisms the ablation cannot see,
+# and seven of the nine never call the judge.
+uv run python scripts/run_probes.py all 2>&1 | tail -60 || FAILED="$FAILED probes"
+uv run python scripts/probe_verifier.py 2>&1 | tail -14 || FAILED="$FAILED p10"
+sync_reports
 
 if [[ -n "$FAILED" ]]; then
   echo "RUNS FINISHED WITH FAILURES:$FAILED"
