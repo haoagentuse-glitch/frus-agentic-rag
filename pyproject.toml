@@ -18,6 +18,9 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "streamlit>=1.40",
+    # 6.x: ChatInterface dropped the `type` argument and speaks the messages
+    # format only, which is what chat_ui.py is written against.
+    "gradio>=6.0",
     "pydantic-settings>=2.6",
     "pydantic>=2.9",
     "orjson>=3.10",

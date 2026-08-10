@@ -183,6 +183,17 @@ def ask(
     )
 
 
+@app.command("chat-ui")
+def chat_ui(
+    host: str = typer.Option("127.0.0.1", help="Bind address"),
+    port: int = typer.Option(7860, help="Port to serve on"),
+) -> None:
+    """Serve the local Gradio chat UI. Loopback by default — nothing is exposed."""
+    from frus_agentic_rag.chat_ui import build
+
+    build().launch(server_name=host, server_port=port, share=False)
+
+
 @app.command("gold-build")
 def gold_build(
     n_lookup: int = typer.Option(10),

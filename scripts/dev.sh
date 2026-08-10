@@ -30,13 +30,19 @@ while IFS='=' read -r name _; do
   [[ -n "$name" ]] && PASSTHROUGH+=(-e "$name")
 done < <(env | grep -E '^FRUS_' || true)
 
+# The image's venv leads the PATH below. /workspace/.venv is a host leftover
+# owned by root, so nothing can be installed into it from inside the container
+# as uid 1000 — adding gradio failed on ownership, not on venv shadowing. The
+# image's venv is the one built from uv.lock, and PYTHONPATH still points at the
+# host source, so source edits still need no rebuild while dependencies come
+# from the place that can actually install them.
 exec docker run --rm -i "${GPU_ARGS[@]}" \
   "${PASSTHROUGH[@]}" \
   --network host \
   -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$PWD:/workspace" -w /workspace \
   -v "$HUB:/models/hf-hub:ro" \
-  -e PATH="/workspace/.venv/bin:/usr/local/bin:/usr/bin:/bin" \
+  -e PATH="/opt/venv/bin:/workspace/.venv/bin:/usr/local/bin:/usr/bin:/bin" \
   -e PYTHONPATH=/workspace/src \
   -e PYTHONUNBUFFERED=1 \
   -e FRUS_DATA_DIR=/workspace/data \
